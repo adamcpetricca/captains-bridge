@@ -1070,6 +1070,63 @@ textarea.ai-input::placeholder { color: var(--text3); }
   grid-template-columns: repeat(3, 1fr);
   gap: 8px;
 }
+
+/* Equipment filter buttons */
+.eq-filter {
+  background: var(--panel2);
+  border: 1px solid var(--border2);
+  border-radius: 14px;
+  color: var(--text3);
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 4px 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.eq-filter:hover { border-color: var(--border); color: var(--text2); }
+.eq-filter.active { background: var(--wake-dim); border-color: var(--wake2); color: var(--wake); }
+
+/* Equipment item card */
+.eq-item {
+  background: var(--panel2);
+  border: 1px solid var(--border2);
+  border-radius: 6px;
+  padding: 12px 14px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+.eq-item:hover { border-color: var(--border); }
+.eq-item-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  flex-shrink: 0;
+}
+.eq-item-body { flex: 1; min-width: 0; }
+.eq-item-name { font-family: var(--body); font-size: 14px; font-weight: 500; color: var(--text); }
+.eq-item-model { font-family: var(--mono); font-size: 10px; color: var(--text3); margin-top: 2px; }
+.eq-item-meta { display: flex; gap: 10px; margin-top: 6px; flex-wrap: wrap; }
+.eq-badge {
+  font-family: var(--mono);
+  font-size: 9px;
+  padding: 2px 7px;
+  border-radius: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.eq-cond-excellent { background: var(--green-dim); color: var(--green); }
+.eq-cond-good { background: var(--wake-dim); color: var(--wake); }
+.eq-cond-fair { background: var(--amber-dim); color: var(--amber); }
+.eq-cond-needs-service { background: var(--red-dim); color: var(--red); }
 </style>
 </head>
 <body>
@@ -1091,7 +1148,7 @@ textarea.ai-input::placeholder { color: var(--text3); }
   <div class="topbar-center">
     <div>
       <div class="clock" id="clock">00:00:00</div>
-      <div class="clock-label" id="dateline">MON 01 JAN · UTC</div>
+      <div class="clock-label" id="dateline">-- : -- : -- LT</div>
     </div>
   </div>
   <div class="topbar-right">
@@ -1112,6 +1169,7 @@ textarea.ai-input::placeholder { color: var(--text3); }
   <button class="nav-tab" onclick="showTab('logbook')">Ship's Log</button>
   <button class="nav-tab" onclick="showTab('emergency')">Emergency</button>
   <button class="nav-tab" onclick="showTab('vessel')">My Vessel</button>
+  <button class="nav-tab" onclick="showTab('equipment')">Equipment</button>
 </div>
 
 <!-- MAIN -->
@@ -1771,6 +1829,137 @@ textarea.ai-input::placeholder { color: var(--text3); }
       </div>
     </div>
 
+    <!-- ══ EQUIPMENT TAB ══ -->
+    <div class="tab-panel" id="tab-equipment">
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Equipment Registry</span>
+          <div style="display:flex;gap:8px">
+            <button class="btn-sec" onclick="addEquipmentItem()">+ Add Item</button>
+            <button class="btn-reset" onclick="askEquipmentAI()">Ask Nav AI about equipment ↗</button>
+          </div>
+        </div>
+        <div style="font-family:var(--body);font-size:12px;color:var(--text3);margin-bottom:14px;padding:10px;background:var(--panel2);border-radius:5px;border-left:3px solid var(--wake)">
+          Log everything aboard — engines, electronics, safety gear, mechanical systems. The Nav AI reads this list automatically so you can ask it how to troubleshoot, operate, or maintain any item.
+        </div>
+
+        <!-- Category filter -->
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px" id="eq-filters">
+          <button class="eq-filter active" onclick="filterEquipment('all',this)">All</button>
+          <button class="eq-filter" onclick="filterEquipment('engine',this)">Engine</button>
+          <button class="eq-filter" onclick="filterEquipment('electronics',this)">Electronics</button>
+          <button class="eq-filter" onclick="filterEquipment('safety',this)">Safety</button>
+          <button class="eq-filter" onclick="filterEquipment('mechanical',this)">Mechanical</button>
+          <button class="eq-filter" onclick="filterEquipment('electrical',this)">Electrical</button>
+          <button class="eq-filter" onclick="filterEquipment('deck',this)">Deck & Rigging</button>
+          <button class="eq-filter" onclick="filterEquipment('other',this)">Other</button>
+        </div>
+
+        <div id="equipment-list" style="display:flex;flex-direction:column;gap:8px"></div>
+
+        <div id="eq-empty" style="display:none;padding:30px;text-align:center;font-family:var(--body);font-size:13px;color:var(--text3)">
+          No equipment logged yet. Click "+ Add Item" to start your registry.
+        </div>
+      </div>
+
+      <!-- Add / Edit Modal -->
+      <div id="eq-modal" style="display:none" class="card">
+        <div class="card-header">
+          <span class="card-title" id="eq-modal-title">Add Equipment</span>
+          <button class="btn-reset" onclick="closeEqModal()">✕ Cancel</button>
+        </div>
+        <div class="form-grid">
+          <div class="field-group">
+            <label class="field-label">Item Name</label>
+            <input type="text" class="field-input" id="eq-name" placeholder="e.g. Garmin GPSMAP 8617">
+          </div>
+          <div class="field-group">
+            <label class="field-label">Category</label>
+            <select class="field-input" id="eq-cat">
+              <option value="engine">Engine</option>
+              <option value="electronics">Electronics</option>
+              <option value="safety">Safety</option>
+              <option value="mechanical">Mechanical</option>
+              <option value="electrical">Electrical</option>
+              <option value="deck">Deck & Rigging</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+          <div class="field-group">
+            <label class="field-label">Make / Model</label>
+            <input type="text" class="field-input" id="eq-model" placeholder="e.g. Garmin GPSMAP 8617 xsv">
+          </div>
+          <div class="field-group">
+            <label class="field-label">Serial / Model #</label>
+            <input type="text" class="field-input" id="eq-serial" placeholder="Serial or model number">
+          </div>
+          <div class="field-group">
+            <label class="field-label">Year / Age</label>
+            <input type="text" class="field-input" id="eq-year" placeholder="e.g. 2021">
+          </div>
+          <div class="field-group">
+            <label class="field-label">Condition</label>
+            <select class="field-input" id="eq-condition">
+              <option value="excellent">Excellent</option>
+              <option value="good">Good</option>
+              <option value="fair">Fair</option>
+              <option value="needs-service">Needs Service</option>
+            </select>
+          </div>
+          <div class="field-group">
+            <label class="field-label">Last Serviced</label>
+            <input type="text" class="field-input" id="eq-serviced" placeholder="e.g. Spring 2024">
+          </div>
+          <div class="field-group">
+            <label class="field-label">Next Service Due</label>
+            <input type="text" class="field-input" id="eq-next-service" placeholder="e.g. 100hrs or Spring 2025">
+          </div>
+          <div class="field-group form-full">
+            <label class="field-label">Location on Vessel</label>
+            <input type="text" class="field-input" id="eq-location" placeholder="e.g. Helm station, port side">
+          </div>
+          <div class="field-group form-full">
+            <label class="field-label">Notes / Specs / Known Issues</label>
+            <textarea class="field-input" id="eq-notes" style="height:80px;resize:vertical" placeholder="Firmware version, quirks, manual location, wiring notes, error codes seen..."></textarea>
+          </div>
+        </div>
+        <div style="margin-top:12px;display:flex;gap:8px">
+          <button class="btn-primary" onclick="saveEquipmentItem()">Save Item</button>
+          <button id="eq-delete-btn" class="btn-reset" style="color:var(--red);border-color:rgba(224,90,90,0.3);display:none" onclick="deleteEquipmentItem()">Delete</button>
+        </div>
+      </div>
+
+      <!-- AI Ask about equipment -->
+      <div class="card" id="eq-ai-card" style="display:none">
+        <div class="card-header">
+          <span class="card-title">Ask Nav AI About Your Equipment</span>
+          <button class="btn-reset" onclick="document.getElementById('eq-ai-card').style.display='none'">✕</button>
+        </div>
+        <div style="font-family:var(--body);font-size:12px;color:var(--text3);margin-bottom:10px">
+          Your full equipment list has been sent to the Nav AI. Ask anything — troubleshooting, how-to, maintenance intervals, error codes.
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">
+          <button class="quick-btn" onclick="eqQuickAsk('How do I reset my chartplotter?')">Reset chartplotter</button>
+          <button class="quick-btn" onclick="eqQuickAsk('What are the service intervals for my engines?')">Engine service intervals</button>
+          <button class="quick-btn" onclick="eqQuickAsk('How do I bleed air from a raw water impeller?')">Raw water impeller</button>
+          <button class="quick-btn" onclick="eqQuickAsk('How do I test my EPIRB?')">Test EPIRB</button>
+          <button class="quick-btn" onclick="eqQuickAsk('What does a VHF DSC distress call do?')">DSC distress call</button>
+        </div>
+        <div class="ai-input-row">
+          <textarea class="ai-input" id="eq-ai-input" placeholder="Ask about any equipment on your vessel..." rows="1"
+            style="flex:1;background:var(--panel);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--body);font-size:13px;padding:9px 12px;resize:none;outline:none;height:42px"
+            onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendEqQuestion()}"
+            oninput="this.style.height='42px';this.style.height=Math.min(this.scrollHeight,100)+'px'"></textarea>
+          <button class="ai-send" onclick="sendEqQuestion()">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 8 L14 2 L10 8 L14 14 Z" fill="white"/></svg>
+          </button>
+        </div>
+        <div id="eq-ai-response" style="display:none;margin-top:12px;padding:12px;background:rgba(94,171,211,0.07);border:1px solid rgba(94,171,211,0.15);border-radius:8px;font-family:var(--body);font-size:13px;color:var(--text);line-height:1.6"></div>
+      </div>
+
+    </div><!-- end equipment tab -->
+
   </div><!-- end content-area -->
 
   <!-- RIGHT PANEL: AI ASSISTANT -->
@@ -1843,15 +2032,23 @@ textarea.ai-input::placeholder { color: var(--text3); }
 </div><!-- end main -->
 
 <script>
-// ── CLOCK ──
+// ── CLOCK — local time with timezone label ──
 function updateClock() {
   const now = new Date();
-  const utc = new Date(now.getTime() + now.getTimezoneOffset()*60000);
-  document.getElementById('clock').textContent = utc.toTimeString().slice(0,8);
+  const h = String(now.getHours()).padStart(2,'0');
+  const m = String(now.getMinutes()).padStart(2,'0');
+  const s = String(now.getSeconds()).padStart(2,'0');
+  document.getElementById('clock').textContent = h+':'+m+':'+s;
   const days = ['SUN','MON','TUE','WED','THU','FRI','SAT'];
   const months = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+  let tzShort = 'LT';
+  try {
+    const parts = Intl.DateTimeFormat('en-US',{timeZoneName:'short'}).formatToParts(now);
+    const tzPart = parts.find(function(p){ return p.type==='timeZoneName'; });
+    if(tzPart) tzShort = tzPart.value;
+  } catch(e){}
   document.getElementById('dateline').textContent =
-    `${days[utc.getDay()]} ${String(utc.getDate()).padStart(2,'0')} ${months[utc.getMonth()]} · UTC`;
+    days[now.getDay()]+' '+String(now.getDate()).padStart(2,'0')+' '+months[now.getMonth()]+' '+now.getFullYear()+' \u00b7 '+tzShort;
 }
 updateClock();
 setInterval(updateClock, 1000);
@@ -1862,7 +2059,7 @@ function showTab(name) {
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
   document.getElementById('tab-'+name).classList.add('active');
   const tabs = document.querySelectorAll('.nav-tab');
-  const tabMap = ['overview','checklist','fuel','weather','floatplan','logbook','emergency','vessel'];
+  const tabMap = ['overview','checklist','fuel','weather','floatplan','logbook','emergency','vessel','equipment'];
   const idx = tabMap.indexOf(name);
   if(idx>=0) tabs[idx].classList.add('active');
 }
@@ -2149,9 +2346,9 @@ loadFP();
 
 function generateFP() {
   const g = id => document.getElementById(id).value || '—';
-  const txt = `══════════════════════════════════
+  const txt = `================================
 FLOAT PLAN
-══════════════════════════════════
+================================
 Captain:          ${g('fp-captain')}
 Contact Phone:    ${g('fp-phone')}
 Vessel Name:      ${g('fp-vessel')}
@@ -2182,7 +2379,7 @@ If vessel is 2+ hours overdue, contact:
 US Coast Guard — VHF Channel 16
 Sector Boston: +1 (617) 223-8555
 
-══════════════════════════════════
+================================
 Generated: ${new Date().toUTCString()}`;
 
   const out = document.getElementById('fp-output');
@@ -2288,6 +2485,7 @@ DASHBOARD CONTROL — CRITICAL CAPABILITY:
 You can directly update dashboard fields. When the captain asks you to set, change, or update any of these values, append a [UPDATE: {...}] block at the END of your response (after your text). Use ONLY these exact keys:
 
 fuel_aboard, fuel_capacity, burn_rate, cruise_speed, trip_distance, reserve_pct,
+log_note (adds a ship log entry note field),
 wind_limit, wave_limit, vis_limit, baro_now, baro_prev,
 vessel_name, home_port, departure_from, destination, pob
 
@@ -2523,6 +2721,203 @@ function quickPrompt(btn) {
 // Init: start fresh session on load
 if(!apiKey) showApiSetup();
 newSession();
+
+// ── EQUIPMENT REGISTRY ──
+const EQ_ICONS = {
+  engine: '🔧', electronics: '📡', safety: '🦺',
+  mechanical: '⚙️', electrical: '⚡', deck: '⚓', other: '📦'
+};
+const EQ_CAT_COLORS = {
+  engine: 'var(--amber-dim)', electronics: 'var(--wake-dim)', safety: 'var(--green-dim)',
+  mechanical: 'var(--amber-dim)', electrical: 'var(--red-dim)', deck: 'var(--panel)', other: 'var(--panel2)'
+};
+
+let equipment = JSON.parse(localStorage.getItem('equipment') || '[]');
+let eqEditId = null;
+let eqFilterCurrent = 'all';
+
+function saveEquipment() {
+  localStorage.setItem('equipment', JSON.stringify(equipment));
+}
+
+function renderEquipment() {
+  const list = document.getElementById('equipment-list');
+  const empty = document.getElementById('eq-empty');
+  const filtered = eqFilterCurrent === 'all' ? equipment : equipment.filter(e => e.cat === eqFilterCurrent);
+  if(!filtered.length) {
+    list.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+  list.innerHTML = filtered.map(item => `
+    <div class="eq-item" onclick="editEquipmentItem('${item.id}')">
+      <div class="eq-item-icon" style="background:${EQ_CAT_COLORS[item.cat]||'var(--panel2)'}">
+        ${EQ_ICONS[item.cat]||'📦'}
+      </div>
+      <div class="eq-item-body">
+        <div class="eq-item-name">${item.name}</div>
+        <div class="eq-item-model">${item.model||''} ${item.serial?'· S/N: '+item.serial:''}</div>
+        <div class="eq-item-meta">
+          <span class="eq-badge eq-cond-${item.condition||'good'}">${(item.condition||'good').replace('-',' ')}</span>
+          ${item.location ? `<span style="font-family:var(--mono);font-size:9px;color:var(--text3)">${item.location}</span>` : ''}
+          ${item.nextService ? `<span style="font-family:var(--mono);font-size:9px;color:var(--amber)">Due: ${item.nextService}</span>` : ''}
+        </div>
+        ${item.notes ? `<div style="font-family:var(--body);font-size:11px;color:var(--text3);margin-top:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:400px">${item.notes}</div>` : ''}
+      </div>
+      <div style="font-family:var(--mono);font-size:9px;color:var(--text3);text-align:right;min-width:50px">
+        ${item.year||''}<br>
+        <span style="color:var(--text3);font-size:8px;text-transform:uppercase;letter-spacing:0.1em">${item.cat}</span>
+      </div>
+    </div>
+  `).join('');
+}
+
+function addEquipmentItem() {
+  eqEditId = null;
+  ['eq-name','eq-model','eq-serial','eq-year','eq-serviced','eq-next-service','eq-location','eq-notes'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  document.getElementById('eq-cat').value = 'electronics';
+  document.getElementById('eq-condition').value = 'good';
+  document.getElementById('eq-modal-title').textContent = 'Add Equipment';
+  document.getElementById('eq-delete-btn').style.display = 'none';
+  document.getElementById('eq-modal').style.display = 'block';
+  document.getElementById('eq-name').focus();
+}
+
+function editEquipmentItem(id) {
+  const item = equipment.find(e => e.id === id);
+  if(!item) return;
+  eqEditId = id;
+  document.getElementById('eq-name').value = item.name || '';
+  document.getElementById('eq-cat').value = item.cat || 'other';
+  document.getElementById('eq-model').value = item.model || '';
+  document.getElementById('eq-serial').value = item.serial || '';
+  document.getElementById('eq-year').value = item.year || '';
+  document.getElementById('eq-condition').value = item.condition || 'good';
+  document.getElementById('eq-serviced').value = item.serviced || '';
+  document.getElementById('eq-next-service').value = item.nextService || '';
+  document.getElementById('eq-location').value = item.location || '';
+  document.getElementById('eq-notes').value = item.notes || '';
+  document.getElementById('eq-modal-title').textContent = 'Edit Equipment';
+  document.getElementById('eq-delete-btn').style.display = 'inline-block';
+  document.getElementById('eq-modal').style.display = 'block';
+}
+
+function saveEquipmentItem() {
+  const name = document.getElementById('eq-name').value.trim();
+  if(!name) { alert('Please enter an item name'); return; }
+  const item = {
+    id: eqEditId || genId(),
+    name,
+    cat: document.getElementById('eq-cat').value,
+    model: document.getElementById('eq-model').value,
+    serial: document.getElementById('eq-serial').value,
+    year: document.getElementById('eq-year').value,
+    condition: document.getElementById('eq-condition').value,
+    serviced: document.getElementById('eq-serviced').value,
+    nextService: document.getElementById('eq-next-service').value,
+    location: document.getElementById('eq-location').value,
+    notes: document.getElementById('eq-notes').value,
+    added: eqEditId ? (equipment.find(e=>e.id===eqEditId)||{}).added : new Date().toISOString()
+  };
+  if(eqEditId) {
+    const idx = equipment.findIndex(e => e.id === eqEditId);
+    if(idx >= 0) equipment[idx] = item;
+  } else {
+    equipment.unshift(item);
+  }
+  saveEquipment();
+  closeEqModal();
+  renderEquipment();
+}
+
+function deleteEquipmentItem() {
+  if(!eqEditId) return;
+  if(!confirm('Remove this item from your equipment list?')) return;
+  equipment = equipment.filter(e => e.id !== eqEditId);
+  saveEquipment();
+  closeEqModal();
+  renderEquipment();
+}
+
+function closeEqModal() {
+  document.getElementById('eq-modal').style.display = 'none';
+  eqEditId = null;
+}
+
+function filterEquipment(cat, el) {
+  eqFilterCurrent = cat;
+  document.querySelectorAll('.eq-filter').forEach(b => b.classList.remove('active'));
+  if(el) el.classList.add('active');
+  renderEquipment();
+}
+
+function getEquipmentContext() {
+  if(!equipment.length) return 'No equipment logged yet.';
+  return equipment.map(e =>
+    `${e.name} (${e.cat}) — ${e.model||''}${e.serial?' S/N:'+e.serial:''} Year:${e.year||'?'} Condition:${e.condition} Location:${e.location||'?'} Notes:${e.notes||'none'}`
+  ).join('\n');
+}
+
+function askEquipmentAI() {
+  document.getElementById('eq-ai-card').style.display = 'block';
+  document.getElementById('eq-ai-response').style.display = 'none';
+  document.getElementById('eq-ai-input').focus();
+  setTimeout(() => document.getElementById('eq-ai-card').scrollIntoView({behavior:'smooth'}), 100);
+}
+
+function eqQuickAsk(q) {
+  document.getElementById('eq-ai-input').value = q;
+  sendEqQuestion();
+}
+
+async function sendEqQuestion() {
+  if(!apiKey) { showApiSetup(); return; }
+  const input = document.getElementById('eq-ai-input');
+  const q = input.value.trim();
+  if(!q) return;
+  input.value = '';
+  const responseEl = document.getElementById('eq-ai-response');
+  responseEl.style.display = 'block';
+  responseEl.innerHTML = '<div style="display:flex;gap:4px;align-items:center"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div>';
+
+  const eqContext = getEquipmentContext();
+  const prompt = `The captain has the following equipment aboard their vessel:
+
+${eqContext}
+
+Question: ${q}`;
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1024,
+        system: SYSTEM_PROMPT,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+    const data = await res.json();
+    if(data.error) {
+      responseEl.innerHTML = `<span style="color:var(--red)">Error: ${data.error.message}</span>`;
+    } else {
+      responseEl.innerHTML = data.content[0].text.replace(/\n/g, '<br>');
+    }
+  } catch(e) {
+    responseEl.innerHTML = '<span style="color:var(--red)">Connection error.</span>';
+  }
+}
+
+renderEquipment();
 
 // ── WINDY MAP ──
 function updateWindy() {
