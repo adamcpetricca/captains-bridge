@@ -52,6 +52,8 @@ body {
   display: flex;
   flex-direction: column;
   overflow-x: hidden;
+  /* Ensure content doesn't go under iPhone status bar */
+  padding-top: env(safe-area-inset-top);
 }
 
 /* Scan line texture overlay */
@@ -70,6 +72,9 @@ body::before {
   align-items: center;
   justify-content: space-between;
   padding: 12px 24px;
+  padding-top: max(12px, env(safe-area-inset-top));
+  padding-left: max(24px, env(safe-area-inset-left));
+  padding-right: max(24px, env(safe-area-inset-right));
   background: var(--deck);
   border-bottom: 1px solid var(--border);
   position: sticky;
@@ -169,6 +174,8 @@ body::before {
   display: flex;
   gap: 2px;
   padding: 10px 24px 0;
+  padding-left: max(24px, env(safe-area-inset-left));
+  padding-right: max(24px, env(safe-area-inset-right));
   background: var(--deck);
   border-bottom: 1px solid var(--border);
   overflow-x: auto;
@@ -1119,7 +1126,7 @@ textarea.ai-input::placeholder { color: var(--text3); }
   right: 0;
   background: var(--deck);
   border-top: 1px solid var(--border);
-  padding: 6px 0 calc(6px + env(safe-area-inset-bottom));
+  padding: 6px max(8px, env(safe-area-inset-right)) calc(6px + env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
   z-index: 150;
   flex-shrink: 0;
 }
@@ -1206,6 +1213,8 @@ textarea.ai-input::placeholder { color: var(--text3); }
   }
   .content-area {
     padding: 12px;
+    padding-left: max(12px, env(safe-area-inset-left));
+    padding-right: max(12px, env(safe-area-inset-right));
     padding-bottom: calc(80px + env(safe-area-inset-bottom));
   }
 
@@ -1333,9 +1342,35 @@ textarea.ai-input::placeholder { color: var(--text3); }
     </div>
   </div>
   <div class="topbar-right">
+    <button onclick="openApiKeyModal()" id="api-key-btn" style="background:none;border:1px solid var(--border);border-radius:5px;color:var(--text3);font-family:var(--mono);font-size:9px;letter-spacing:0.1em;text-transform:uppercase;padding:5px 10px;cursor:pointer;transition:all 0.15s" onmouseover="this.style.color='var(--wake)';this.style.borderColor='var(--wake2)'" onmouseout="this.style.color='var(--text3)';this.style.borderColor='var(--border)'">⚡ API Key</button>
     <div class="status-pill">
-      <div class="dot"></div>
-      Systems Online
+      <div class="dot" id="api-status-dot"></div>
+      <span id="api-status-text">Systems Online</span>
+    </div>
+  </div>
+</div>
+
+<!-- API Key Modal -->
+<div id="api-key-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:1000;align-items:center;justify-content:center;backdrop-filter:blur(4px)" onclick="if(event.target===this)closeApiKeyModal()">
+  <div style="background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:24px;width:min(420px,90vw);box-shadow:0 20px 60px rgba(0,0,0,0.5)">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div>
+        <div style="font-family:var(--display);font-size:13px;font-weight:600;letter-spacing:0.1em;color:var(--text)">ANTHROPIC API KEY</div>
+        <div style="font-family:var(--mono);font-size:10px;color:var(--text3);margin-top:3px">Stored locally in your browser only</div>
+      </div>
+      <button onclick="closeApiKeyModal()" style="background:none;border:none;color:var(--text3);font-size:20px;cursor:pointer;padding:0 4px;line-height:1">×</button>
+    </div>
+    <div style="font-family:var(--body);font-size:12px;color:var(--text2);margin-bottom:14px;padding:10px;background:var(--panel2);border-radius:6px;line-height:1.6">
+      Get your key at <a href="https://console.anthropic.com" target="_blank" style="color:var(--wake)">console.anthropic.com</a> → API Keys → Create Key. Starts with <span style="font-family:var(--mono);color:var(--amber)">sk-ant-</span>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:12px">
+      <input type="password" id="api-key-modal-input" placeholder="sk-ant-api03-..." style="flex:1;background:var(--panel2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:12px;padding:10px 12px;outline:none" onkeydown="if(event.key==='Enter')saveApiKeyFromModal()">
+      <button onclick="toggleApiKeyVisibility()" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;color:var(--text3);font-size:14px;padding:0 12px;cursor:pointer" title="Show/hide key">👁</button>
+    </div>
+    <div id="api-key-current" style="font-family:var(--mono);font-size:10px;color:var(--text3);margin-bottom:14px"></div>
+    <div style="display:flex;gap:8px">
+      <button onclick="saveApiKeyFromModal()" style="flex:1;background:var(--wake2);border:none;border-radius:6px;color:white;font-family:var(--display);font-size:10px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;padding:10px;cursor:pointer">Save Key</button>
+      <button onclick="removeApiKey()" style="background:var(--panel2);border:1px solid rgba(224,90,90,0.3);border-radius:6px;color:var(--red);font-family:var(--display);font-size:10px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;padding:10px 14px;cursor:pointer">Remove</button>
     </div>
   </div>
 </div>
@@ -1351,6 +1386,9 @@ textarea.ai-input::placeholder { color: var(--text3); }
   <button class="nav-tab" onclick="showTab('emergency')">Emergency</button>
   <button class="nav-tab" onclick="showTab('vessel')">My Vessel</button>
   <button class="nav-tab" onclick="showTab('equipment')">Equipment</button>
+  <button class="nav-tab" onclick="showTab('maintenance')">Maintenance</button>
+  <button class="nav-tab" onclick="showTab('tripplan')">Trip Planner</button>
+  <button class="nav-tab" onclick="showTab('anchor')">Anchor Watch</button>
 </div>
 
 <!-- MAIN -->
@@ -1943,8 +1981,13 @@ textarea.ai-input::placeholder { color: var(--text3); }
       <div class="card">
         <div class="card-header">
           <span class="card-title">My Vessel Profile</span>
-          <span class="card-badge badge-info">SAVED LOCALLY</span>
+          <div style="display:flex;gap:8px;align-items:center">
+            <span class="card-badge badge-info">SAVED LOCALLY</span>
+            <button class="btn-primary" onclick="autoPopulateVessel()" id="auto-pop-btn" style="font-size:9px;padding:5px 10px">✦ Auto-populate from Model</button>
+          </div>
         </div>
+        <!-- Auto-populate status -->
+        <div id="auto-pop-status" style="display:none;margin-bottom:14px;padding:12px;border-radius:6px;font-family:var(--body);font-size:13px;line-height:1.6"></div>
         <div class="form-grid">
           <div class="field-group">
             <label class="field-label">Vessel Name</label>
@@ -2141,6 +2184,274 @@ textarea.ai-input::placeholder { color: var(--text3); }
 
     </div><!-- end equipment tab -->
 
+    <!-- ══ MAINTENANCE LOG TAB ══ -->
+    <div class="tab-panel" id="tab-maintenance">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Maintenance Log</span>
+          <button class="btn-sec" onclick="addMaintenanceEntry()">+ Log Service</button>
+        </div>
+        <div style="font-family:var(--body);font-size:12px;color:var(--text3);margin-bottom:14px;padding:10px;background:var(--panel2);border-radius:5px;border-left:3px solid var(--amber)">
+          Track all service, repairs, and inspections. The Nav AI reads this log and can remind you of upcoming service intervals.
+        </div>
+        <!-- Upcoming due -->
+        <div id="maint-due-section" style="margin-bottom:14px">
+          <div style="font-family:var(--display);font-size:9px;letter-spacing:0.18em;text-transform:uppercase;color:var(--red);margin-bottom:8px">Due / Overdue</div>
+          <div id="maint-due-list"></div>
+        </div>
+        <div style="font-family:var(--display);font-size:9px;letter-spacing:0.18em;text-transform:uppercase;color:var(--text3);margin-bottom:8px">Service History</div>
+        <div id="maint-list" style="display:flex;flex-direction:column;gap:6px"></div>
+        <div id="maint-empty" style="display:none;padding:20px;text-align:center;font-family:var(--body);font-size:13px;color:var(--text3)">No maintenance logged yet.</div>
+      </div>
+      <!-- Add entry form -->
+      <div class="card" id="maint-form" style="display:none">
+        <div class="card-header">
+          <span class="card-title" id="maint-form-title">Log Service</span>
+          <button class="btn-reset" onclick="closeMaintForm()">✕</button>
+        </div>
+        <div class="form-grid">
+          <div class="field-group">
+            <label class="field-label">Service Item</label>
+            <input type="text" class="field-input" id="maint-item" placeholder="e.g. Engine oil change">
+          </div>
+          <div class="field-group">
+            <label class="field-label">Category</label>
+            <select class="field-input" id="maint-cat">
+              <option value="engine">Engine</option>
+              <option value="mechanical">Mechanical</option>
+              <option value="electrical">Electrical</option>
+              <option value="hull">Hull & Bottom</option>
+              <option value="safety">Safety Equipment</option>
+              <option value="electronics">Electronics</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+          <div class="field-group">
+            <label class="field-label">Date Performed</label>
+            <input type="date" class="field-input" id="maint-date">
+          </div>
+          <div class="field-group">
+            <label class="field-label">Engine Hours</label>
+            <input type="number" class="field-input" id="maint-hours" placeholder="1247">
+          </div>
+          <div class="field-group">
+            <label class="field-label">Cost ($)</label>
+            <input type="number" class="field-input" id="maint-cost" placeholder="0.00" step="0.01">
+          </div>
+          <div class="field-group">
+            <label class="field-label">Performed By</label>
+            <input type="text" class="field-input" id="maint-by" placeholder="Self / Marina name">
+          </div>
+          <div class="field-group">
+            <label class="field-label">Next Due (date or hours)</label>
+            <input type="text" class="field-input" id="maint-next" placeholder="e.g. Spring 2026 or 1347hrs">
+          </div>
+          <div class="field-group">
+            <label class="field-label">Interval</label>
+            <select class="field-input" id="maint-interval">
+              <option value="">No reminder</option>
+              <option value="annual">Annual</option>
+              <option value="seasonal">Each season</option>
+              <option value="100hrs">Every 100 hrs</option>
+              <option value="200hrs">Every 200 hrs</option>
+              <option value="500hrs">Every 500 hrs</option>
+            </select>
+          </div>
+          <div class="field-group form-full">
+            <label class="field-label">Notes / Parts Used</label>
+            <textarea class="field-input" id="maint-notes" style="height:70px;resize:vertical" placeholder="Parts numbers, observations, who did the work..."></textarea>
+          </div>
+        </div>
+        <div style="margin-top:12px;display:flex;gap:8px">
+          <button class="btn-primary" onclick="saveMaintEntry()">Save Entry</button>
+          <button id="maint-delete-btn" class="btn-reset" style="color:var(--red);border-color:rgba(224,90,90,0.3);display:none" onclick="deleteMaintEntry()">Delete</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ TRIP PLANNER TAB ══ -->
+    <div class="tab-panel" id="tab-tripplan">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Trip Planner</span>
+          <span class="card-badge badge-info">AI-Assisted</span>
+        </div>
+        <div class="form-grid">
+          <div class="field-group">
+            <label class="field-label">Departure Port</label>
+            <input type="text" class="field-input" id="tp-from" placeholder="Marina Bay, Quincy MA" oninput="updateTripPlan()">
+          </div>
+          <div class="field-group">
+            <label class="field-label">Destination</label>
+            <input type="text" class="field-input" id="tp-to" placeholder="Provincetown, MA" oninput="updateTripPlan()">
+          </div>
+          <div class="field-group">
+            <label class="field-label">Departure Date</label>
+            <input type="date" class="field-input" id="tp-date" oninput="updateTripPlan()">
+          </div>
+          <div class="field-group">
+            <label class="field-label">Departure Time</label>
+            <input type="time" class="field-input" id="tp-time" value="08:00" oninput="updateTripPlan()">
+          </div>
+          <div class="field-group">
+            <label class="field-label">Distance (nm)</label>
+            <input type="number" class="field-input" id="tp-dist" placeholder="45" oninput="updateTripPlan()">
+          </div>
+          <div class="field-group">
+            <label class="field-label">Cruise Speed (kts)</label>
+            <input type="number" class="field-input" id="tp-speed" placeholder="18" oninput="updateTripPlan()">
+          </div>
+          <div class="field-group">
+            <label class="field-label">Fuel Aboard (gal)</label>
+            <input type="number" class="field-input" id="tp-fuel" placeholder="280" oninput="updateTripPlan()">
+          </div>
+          <div class="field-group">
+            <label class="field-label">Burn Rate (gph)</label>
+            <input type="number" class="field-input" id="tp-burn" placeholder="25" oninput="updateTripPlan()">
+          </div>
+          <div class="field-group form-full">
+            <label class="field-label">Waypoints / Notes</label>
+            <textarea class="field-input" id="tp-waypoints" style="height:60px;resize:vertical" placeholder="Via Point Allerton, avoid Brewster Shoal..."></textarea>
+          </div>
+        </div>
+      </div>
+
+      <!-- Trip Summary -->
+      <div class="card" id="tp-summary">
+        <div class="card-header">
+          <span class="card-title">Trip Summary</span>
+        </div>
+        <div class="stat-grid" style="grid-template-columns:repeat(4,1fr)">
+          <div class="stat highlight">
+            <div class="stat-val" id="tp-eta-val">--</div>
+            <div class="stat-label">ETA</div>
+          </div>
+          <div class="stat">
+            <div class="stat-val" id="tp-hrs-val">--<span class="stat-unit">h</span></div>
+            <div class="stat-label">Transit</div>
+          </div>
+          <div class="stat" id="tp-fuel-stat">
+            <div class="stat-val" id="tp-fuel-val">--<span class="stat-unit">gal</span></div>
+            <div class="stat-label">Fuel Used</div>
+          </div>
+          <div class="stat" id="tp-go-stat">
+            <div class="stat-val" id="tp-go-val" style="font-size:16px">--</div>
+            <div class="stat-label">Go/No-Go</div>
+          </div>
+        </div>
+        <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn-primary" onclick="aiPlanTrip()">Ask Nav AI to Plan This Trip</button>
+          <button class="btn-sec" onclick="sendTripToFloatPlan()">Send to Float Plan →</button>
+          <button class="btn-sec" onclick="sendTripToFuelCalc()">Send to Fuel Calc →</button>
+        </div>
+        <div id="tp-ai-response" style="display:none;margin-top:14px;padding:12px;background:rgba(94,171,211,0.07);border:1px solid rgba(94,171,211,0.15);border-radius:8px;font-family:var(--body);font-size:13px;color:var(--text);line-height:1.6"></div>
+      </div>
+
+      <!-- Weather window for trip -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Weather Resources for Trip Planning</span>
+        </div>
+        <div class="link-grid">
+          <a class="wx-link" href="https://marine.weather.gov" target="_blank">
+            <span class="wx-icon">⚓</span>
+            <div><div class="wx-name">NWS Marine Forecast</div><div class="wx-desc">Zone forecast for your area</div></div>
+          </a>
+          <a class="wx-link" href="https://www.windy.com" target="_blank">
+            <span class="wx-icon">🌬️</span>
+            <div><div class="wx-name">Windy</div><div class="wx-desc">7-day wind & wave model</div></div>
+          </a>
+          <a class="wx-link" href="https://tidesandcurrents.noaa.gov" target="_blank">
+            <span class="wx-icon">🌊</span>
+            <div><div class="wx-name">NOAA Tides</div><div class="wx-desc">Tide windows at destination</div></div>
+          </a>
+          <a class="wx-link" href="https://www.passageweather.com" target="_blank">
+            <span class="wx-icon">🗺️</span>
+            <div><div class="wx-name">Passage Weather</div><div class="wx-desc">Multi-day passage planning</div></div>
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ ANCHOR WATCH TAB ══ -->
+    <div class="tab-panel" id="tab-anchor">
+      <div class="row-2">
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Anchor Watch</span>
+            <span class="card-badge" id="anchor-status-badge" style="background:var(--panel2);color:var(--text3);border:1px solid var(--border)">INACTIVE</span>
+          </div>
+          <div style="text-align:center;padding:10px 0">
+            <div style="font-family:var(--display);font-size:10px;letter-spacing:0.15em;text-transform:uppercase;color:var(--text3);margin-bottom:6px">Drag Radius</div>
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+              <input type="range" id="anchor-radius" min="25" max="500" value="75" step="25" style="flex:1" oninput="updateAnchorRadius()">
+              <div style="font-family:var(--mono);font-size:18px;font-weight:700;color:var(--wake);min-width:60px" id="anchor-radius-val">75 ft</div>
+            </div>
+            <!-- Visual drag indicator -->
+            <div style="position:relative;width:160px;height:160px;margin:0 auto 16px">
+              <svg width="160" height="160" viewBox="0 0 160 160">
+                <circle cx="80" cy="80" r="70" fill="none" stroke="var(--border2)" stroke-width="1" stroke-dasharray="4,4"/>
+                <circle cx="80" cy="80" r="70" fill="rgba(94,171,211,0.05)" id="anchor-circle-outer"/>
+                <circle id="anchor-drag-ring" cx="80" cy="80" r="50" fill="rgba(94,171,211,0.08)" stroke="var(--wake2)" stroke-width="1.5" stroke-dasharray="5,3"/>
+                <circle cx="80" cy="80" r="6" fill="var(--amber)" id="anchor-dot"/>
+                <circle cx="80" cy="80" r="3" fill="var(--hull)"/>
+                <text x="80" y="155" text-anchor="middle" font-family="monospace" font-size="9" fill="var(--text3)" id="anchor-radius-label">75 ft radius</text>
+              </svg>
+            </div>
+            <div style="font-family:var(--mono);font-size:11px;color:var(--text3);margin-bottom:14px" id="anchor-position-display">Position not set</div>
+            <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+              <button class="btn-primary" id="anchor-set-btn" onclick="setAnchorPosition()">Drop Anchor Here</button>
+              <button class="btn-sec" id="anchor-watch-btn" onclick="toggleAnchorWatch()" style="display:none">Start Watch</button>
+              <button class="btn-reset" onclick="clearAnchor()" style="display:none" id="anchor-clear-btn">Clear</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Watch Status</span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:12px">
+            <div class="stat" id="anchor-dist-stat">
+              <div class="stat-val" id="anchor-dist-val">--<span class="stat-unit">ft</span></div>
+              <div class="stat-label">Distance from Anchor</div>
+            </div>
+            <div class="stat">
+              <div class="stat-val" id="anchor-bearing-val">--<span class="stat-unit">°</span></div>
+              <div class="stat-label">Bearing to Anchor</div>
+            </div>
+            <div class="stat">
+              <div class="stat-val" id="anchor-accuracy-val">--<span class="stat-unit">ft</span></div>
+              <div class="stat-label">GPS Accuracy</div>
+            </div>
+            <div id="anchor-alert" style="display:none;padding:12px;background:var(--red-dim);border:1px solid rgba(224,90,90,0.4);border-radius:6px;font-family:var(--display);font-size:13px;font-weight:700;letter-spacing:0.08em;color:var(--red);text-align:center">
+              ANCHOR DRAG ALERT
+            </div>
+            <div style="font-family:var(--body);font-size:11px;color:var(--text3);line-height:1.6;padding:8px;background:var(--panel2);border-radius:5px">
+              Requires location permission. Keep screen active for continuous monitoring. Sound alarm triggers if vessel moves outside drag radius.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Anchoring Tips</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div style="padding:8px 10px;background:var(--panel2);border-radius:5px;border-left:3px solid var(--wake);font-family:var(--body);font-size:13px;color:var(--text2)">
+            <strong style="color:var(--wake)">Scope:</strong> Use 5:1 to 7:1 scope in normal conditions (chain + rope). 10:1 in heavy weather. Scope = rode out / water depth + freeboard.
+          </div>
+          <div style="padding:8px 10px;background:var(--panel2);border-radius:5px;border-left:3px solid var(--amber);font-family:var(--body);font-size:13px;color:var(--text2)">
+            <strong style="color:var(--amber)">Swing circle:</strong> Your drag radius should account for full swing — rode length + vessel length in all directions.
+          </div>
+          <div style="padding:8px 10px;background:var(--panel2);border-radius:5px;border-left:3px solid var(--green);font-family:var(--body);font-size:13px;color:var(--text2)">
+            <strong style="color:var(--green)">Set the hook:</strong> After dropping, reverse slowly at idle to dig in. Apply burst of reverse at 1000 RPM to confirm set.
+          </div>
+        </div>
+      </div>
+    </div>
+
   </div><!-- end content-area -->
 
   <!-- RIGHT PANEL: AI ASSISTANT -->
@@ -2240,7 +2551,7 @@ function showTab(name) {
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
   document.getElementById('tab-'+name).classList.add('active');
   const tabs = document.querySelectorAll('.nav-tab');
-  const tabMap = ['overview','checklist','fuel','weather','floatplan','logbook','emergency','vessel','equipment'];
+  const tabMap = ['overview','checklist','fuel','weather','floatplan','logbook','emergency','vessel','equipment','maintenance','tripplan','anchor'];
   const idx = tabMap.indexOf(name);
   if(idx>=0) tabs[idx].classList.add('active');
 }
@@ -2627,6 +2938,206 @@ function exportLog() {
 }
 
 // ── VESSEL PROFILE ──
+// ── AUTO-POPULATE VESSEL FROM MODEL ──
+const AUTO_POP_SYSTEM = `You are a marine technical database. When given a boat make/model and year, return ONLY valid JSON with no other text, no markdown, no explanation.
+
+Return this exact structure:
+{
+  "specs": {
+    "loa": "38",
+    "beam": "13.5",
+    "draft": "2.8",
+    "fuel_capacity": "300",
+    "water_capacity": "40",
+    "cruise_speed": "18",
+    "top_speed": "38",
+    "burn_rate_cruise": "25",
+    "engines": "Twin Mercury 350 Verado"
+  },
+  "equipment": [
+    {
+      "name": "Mercury 350 Verado (Port)",
+      "cat": "engine",
+      "model": "Mercury 350 Verado FourStroke",
+      "location": "Port engine well",
+      "notes": "350hp, 4-stroke, supercharged. Oil capacity: 8.5 qts Quicksilver 25W-50 Full Synthetic. Gear oil: 21.7 oz Quicksilver High Performance Gear Lube 80W-90. Impeller: Mercury 47-8M0100526. Fuel filter: Mercury 35-8M0060041. Oil filter: Mercury 35-822626Q03."
+    }
+  ],
+  "maintenance": [
+    {
+      "item": "Engine Oil & Filter Change (Port)",
+      "cat": "engine",
+      "interval": "100hrs",
+      "notes": "Quicksilver 25W-50 Full Synthetic, 8.5 qts. Filter: Mercury 35-822626Q03. Change every 100hrs or annually.",
+      "nextDue": "100hrs"
+    }
+  ]
+}
+
+Be EXHAUSTIVE. Include ALL systems: both engines separately, raw water impellers, gear oil, transmission fluid, fuel filters, oil filters (with exact part numbers where known), trim/tilt fluid, power steering fluid, batteries, bilge pumps, AC system, generator (if standard), VHF radio, chartplotter, radar, depth sounder, autopilot, windlass, windshield washers, freshwater pump, holding tank, shore power system, fire extinguishers, EPIRB, life jackets, flares, CO detector, bilge blower.
+
+For maintenance intervals include: oil type and exact quantity, filter part numbers, fluid types, capacities, torque specs where relevant, seasonal winterization notes.
+
+Return ONLY the JSON object. No other text whatsoever.`;
+
+async function autoPopulateVessel() {
+  if(!apiKey) { showApiSetup(); return; }
+  const model = document.getElementById('v-model').value.trim();
+  if(!model) {
+    alert('Enter your boat make/model first (e.g. "Formula 37 PC" or "2018 Sea Ray 460 Sundancer")');
+    return;
+  }
+  const year = prompt('What year is your ' + model + '? (leave blank if unknown)', '');
+  const query = (year ? year + ' ' : '') + model;
+
+  const statusEl = document.getElementById('auto-pop-status');
+  const btn = document.getElementById('auto-pop-btn');
+  statusEl.style.display = 'block';
+  statusEl.style.background = 'var(--panel2)';
+  statusEl.style.border = '1px solid var(--border)';
+  statusEl.style.color = 'var(--text2)';
+  statusEl.innerHTML = '<div style="display:flex;gap:8px;align-items:center"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div><span>Researching ' + query + '...</span></div>';
+  btn.disabled = true;
+  btn.textContent = 'Loading...';
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 4000,
+        system: AUTO_POP_SYSTEM,
+        messages: [{ role: 'user', content: 'Give me complete specs, equipment list, and maintenance schedule for: ' + query }]
+      })
+    });
+
+    const data = await res.json();
+    if(data.error) throw new Error(data.error.message);
+
+    let raw = data.content[0].text.trim();
+    // Strip markdown code blocks if present
+    raw = raw.replace(/^```json[\r\n]*/,'').replace(/^```[\r\n]*/,'').replace(/[\r\n]*```$/,'').trim();
+
+    let parsed;
+    try {
+      parsed = JSON.parse(raw);
+    } catch(e) {
+      // Try to extract JSON from response
+      const match = raw.match(/\{[\s\S]*\}/);
+      if(match) parsed = JSON.parse(match[0]);
+      else throw new Error('Could not parse response as JSON');
+    }
+
+    // ── Apply specs to vessel profile ──
+    let specsApplied = 0;
+    if(parsed.specs) {
+      const s = parsed.specs;
+      const fieldMap = {
+        loa: 'v-loa', beam: 'v-beam', draft: 'v-draft',
+        fuel_capacity: 'v-fuel-cap', cruise_speed: 'v-speed',
+        burn_rate_cruise: 'v-burn', engines: 'v-engine'
+      };
+      for(const [key, elId] of Object.entries(fieldMap)) {
+        if(s[key]) {
+          document.getElementById(elId).value = s[key];
+          specsApplied++;
+        }
+      }
+      if(s.water_capacity || s.top_speed) {
+        const existing = document.getElementById('v-notes').value;
+        const extras = [];
+        if(s.water_capacity) extras.push('Water tank: ' + s.water_capacity + ' gal');
+        if(s.top_speed) extras.push('Top speed: ' + s.top_speed + ' kts');
+        if(extras.length && !existing.includes('Water tank')) {
+          document.getElementById('v-notes').value = (existing ? existing + '\n' : '') + extras.join(' | ');
+        }
+      }
+      saveVessel();
+      updateFuelFromVessel();
+    }
+
+    // ── Add equipment items ──
+    let eqAdded = 0;
+    if(parsed.equipment && Array.isArray(parsed.equipment)) {
+      const newEq = parsed.equipment.map(e => ({
+        id: genId(),
+        name: e.name || 'Unknown',
+        cat: e.cat || 'other',
+        model: e.model || '',
+        serial: e.serial || '',
+        year: e.year || year || '',
+        condition: e.condition || 'good',
+        serviced: '',
+        nextService: '',
+        location: e.location || '',
+        notes: e.notes || '',
+        added: new Date().toISOString(),
+        autoPopulated: true
+      }));
+      // Remove previous auto-populated items to avoid duplication
+      equipment = equipment.filter(e => !e.autoPopulated);
+      equipment = [...newEq, ...equipment];
+      saveEquipment();
+      renderEquipment();
+      eqAdded = newEq.length;
+    }
+
+    // ── Add maintenance schedule entries ──
+    let maintAdded = 0;
+    if(parsed.maintenance && Array.isArray(parsed.maintenance)) {
+      const today = new Date().toISOString().slice(0,10);
+      const newMaint = parsed.maintenance.map(m => ({
+        id: genId(),
+        item: m.item || 'Service item',
+        cat: m.cat || 'engine',
+        date: '',
+        hours: '',
+        cost: '',
+        by: '',
+        nextDue: m.nextDue || '',
+        interval: m.interval || 'annual',
+        notes: m.notes || '',
+        autoPopulated: true
+      }));
+      // Remove previous auto-populated maintenance
+      maintenance = maintenance.filter(m => !m.autoPopulated);
+      maintenance = [...newMaint, ...maintenance];
+      saveMaintenance();
+      renderMaintenance();
+      maintAdded = newMaint.length;
+    }
+
+    // ── Success status ──
+    statusEl.style.background = 'var(--green-dim)';
+    statusEl.style.border = '1px solid rgba(76,186,122,0.3)';
+    statusEl.style.color = 'var(--text)';
+    statusEl.innerHTML = `
+      <div style="font-family:var(--display);font-size:11px;font-weight:600;letter-spacing:0.1em;color:var(--green);margin-bottom:8px">✓ AUTO-POPULATED: ${query.toUpperCase()}</div>
+      <div style="display:flex;gap:16px;flex-wrap:wrap">
+        <span style="font-family:var(--mono);font-size:11px;color:var(--text2)">📋 ${specsApplied} specs filled</span>
+        <span style="font-family:var(--mono);font-size:11px;color:var(--text2)">🔧 ${eqAdded} equipment items added</span>
+        <span style="font-family:var(--mono);font-size:11px;color:var(--text2)">📅 ${maintAdded} maintenance schedules added</span>
+      </div>
+      <div style="font-family:var(--body);font-size:12px;color:var(--text3);margin-top:8px">Review the Equipment and Maintenance tabs — verify part numbers against your actual manuals. Update serial numbers, condition, and last service dates.</div>
+    `;
+
+  } catch(e) {
+    statusEl.style.background = 'var(--red-dim)';
+    statusEl.style.border = '1px solid rgba(224,90,90,0.3)';
+    statusEl.style.color = 'var(--red)';
+    statusEl.innerHTML = '<strong>Error:</strong> ' + e.message + '. Make sure your API key is connected and try again.';
+  }
+
+  btn.disabled = false;
+  btn.textContent = '✦ Auto-populate from Model';
+}
+
 function saveVessel() {
   const ids = ['v-name','v-model','v-loa','v-beam','v-draft','v-fuel-cap','v-engine','v-speed','v-burn','v-homeport','v-mmsi','v-reg','v-epirb','v-ins','v-notes'];
   const data = {};
@@ -2673,7 +3184,11 @@ vessel_name, home_port, departure_from, destination, pob
 Example: "I've updated your trip to 45nm and your burn rate to 30 gph. [UPDATE: {"trip_distance": "45", "burn_rate": "30"}]"
 Only include keys you are actually changing. All values must be strings.
 Always confirm what you changed in plain language BEFORE the [UPDATE:] tag.
-You will receive the current page state at the start of each message.`;
+You will receive the current page state at the start of each message.
+
+VESSEL PROFILE: You automatically have access to the captain's vessel profile and equipment list. Reference the vessel name, make/model, engines, fuel capacity, and equipment when relevant. If the captain asks about maintenance intervals, factor in their specific engines.
+
+LIVE DATA: When current weather and tide data is available in the page state, reference it. Tell the captain if conditions look good or marginal for their planned trip.`;
 
 // ── SESSION / HISTORY MANAGEMENT ──
 const WELCOME_MSG = 'Ahoy, Captain. I\'m your onboard Nav AI — ask me about navigation, weather, seamanship, regulations, or this trip. Try a quick prompt below or type your own.';
@@ -2790,7 +3305,84 @@ function saveApiKey() {
   apiKey = key;
   localStorage.setItem('navai-key', key);
   document.getElementById('api-setup').classList.remove('visible');
+  updateApiStatusIndicator();
 }
+
+function openApiKeyModal() {
+  const modal = document.getElementById('api-key-modal');
+  modal.style.display = 'flex';
+  const input = document.getElementById('api-key-modal-input');
+  input.value = '';
+  input.placeholder = apiKey ? 'Enter new key to replace current' : 'sk-ant-api03-...';
+  const currentEl = document.getElementById('api-key-current');
+  if(apiKey) {
+    currentEl.textContent = 'Current key: ' + apiKey.slice(0,12) + '...' + apiKey.slice(-4);
+    currentEl.style.color = 'var(--green)';
+  } else {
+    currentEl.textContent = 'No key connected';
+    currentEl.style.color = 'var(--red)';
+  }
+  setTimeout(() => input.focus(), 100);
+}
+
+function closeApiKeyModal() {
+  document.getElementById('api-key-modal').style.display = 'none';
+}
+
+function toggleApiKeyVisibility() {
+  const input = document.getElementById('api-key-modal-input');
+  input.type = input.type === 'password' ? 'text' : 'password';
+}
+
+function saveApiKeyFromModal() {
+  const key = document.getElementById('api-key-modal-input').value.trim();
+  if(!key) { closeApiKeyModal(); return; }
+  if(!key.startsWith('sk-')) {
+    document.getElementById('api-key-modal-input').style.borderColor = 'var(--red)';
+    document.getElementById('api-key-current').textContent = 'Invalid key — must start with sk-';
+    document.getElementById('api-key-current').style.color = 'var(--red)';
+    return;
+  }
+  apiKey = key;
+  localStorage.setItem('navai-key', key);
+  // Also update the inline setup if visible
+  document.getElementById('api-setup').classList.remove('visible');
+  updateApiStatusIndicator();
+  closeApiKeyModal();
+  // Confirm
+  const btn = document.getElementById('api-key-btn');
+  const orig = btn.textContent;
+  btn.textContent = '✓ Key Saved';
+  btn.style.color = 'var(--green)';
+  setTimeout(() => { btn.textContent = orig; btn.style.color = ''; }, 2000);
+}
+
+function removeApiKey() {
+  if(!confirm('Remove your API key? The AI assistant will stop working until you add a new one.')) return;
+  apiKey = '';
+  localStorage.removeItem('navai-key');
+  updateApiStatusIndicator();
+  closeApiKeyModal();
+  showApiSetup();
+}
+
+function updateApiStatusIndicator() {
+  const dot = document.getElementById('api-status-dot');
+  const text = document.getElementById('api-status-text');
+  if(!dot || !text) return;
+  if(apiKey) {
+    dot.style.background = 'var(--green)';
+    dot.style.boxShadow = '0 0 6px var(--green)';
+    text.textContent = 'AI Connected';
+  } else {
+    dot.style.background = 'var(--red)';
+    dot.style.boxShadow = '0 0 6px var(--red)';
+    text.textContent = 'No API Key';
+  }
+}
+
+// Update indicator on load
+setTimeout(updateApiStatusIndicator, 100);
 
 function addAiMessage(role, text) {
   const container = document.getElementById('ai-messages');
@@ -3011,7 +3603,364 @@ function saveEquipmentItem() {
   }
   saveEquipment();
   closeEqModal();
-  renderEquipment();
+  // ── MAINTENANCE LOG ──
+let maintenance = JSON.parse(localStorage.getItem('maintenance')||'[]');
+let maintEditId = null;
+const MAINT_CAT_ICONS = {engine:'🔧',mechanical:'⚙️',electrical:'⚡',hull:'🚢',safety:'🦺',electronics:'📡',other:'📦'};
+
+function saveMaintenance() { localStorage.setItem('maintenance', JSON.stringify(maintenance)); }
+
+function renderMaintenance() {
+  const list = document.getElementById('maint-list');
+  const empty = document.getElementById('maint-empty');
+  const dueList = document.getElementById('maint-due-list');
+  const now = new Date();
+
+  // Due/overdue items
+  const due = maintenance.filter(m => m.nextDue && new Date(m.nextDue) <= new Date(now.getTime() + 30*24*60*60*1000));
+  if(due.length) {
+    dueList.innerHTML = due.map(m => {
+      const d = new Date(m.nextDue);
+      const overdue = d < now;
+      return `<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:${overdue?'var(--red-dim)':'var(--amber-dim)'};border:1px solid ${overdue?'rgba(224,90,90,0.3)':'rgba(232,168,76,0.3)'};border-radius:5px;margin-bottom:6px;cursor:pointer" onclick="editMaintEntry('${m.id}')">
+        <span style="font-size:16px">${MAINT_CAT_ICONS[m.cat]||'📦'}</span>
+        <div style="flex:1"><div style="font-family:var(--body);font-size:13px;color:var(--text)">${m.item}</div><div style="font-family:var(--mono);font-size:10px;color:${overdue?'var(--red)':'var(--amber)'}">Due: ${m.nextDue}</div></div>
+      </div>`;
+    }).join('');
+    document.getElementById('maint-due-section').style.display = 'block';
+  } else {
+    document.getElementById('maint-due-section').style.display = 'none';
+  }
+
+  if(!maintenance.length) { list.innerHTML = ''; empty.style.display = 'block'; return; }
+  empty.style.display = 'none';
+  const sorted = [...maintenance].sort((a,b) => new Date(b.date) - new Date(a.date));
+  list.innerHTML = sorted.map(m => `
+    <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;background:var(--panel2);border:1px solid var(--border2);border-radius:6px;cursor:pointer;transition:border-color 0.15s" onclick="editMaintEntry('${m.id}')" onmouseover="this.style.borderColor='var(--border)'" onmouseout="this.style.borderColor='var(--border2)')">
+      <span style="font-size:18px;flex-shrink:0">${MAINT_CAT_ICONS[m.cat]||'📦'}</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-family:var(--body);font-size:13px;font-weight:500;color:var(--text)">${m.item}</div>
+        <div style="font-family:var(--mono);font-size:10px;color:var(--text3);margin-top:2px">${m.date||''} ${m.hours?'· '+m.hours+' hrs':''} ${m.by?'· '+m.by:''} ${m.cost?'· $'+parseFloat(m.cost).toFixed(0):''}</div>
+        ${m.notes?'<div style="font-family:var(--body);font-size:11px;color:var(--text3);margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+m.notes+'</div>':''}
+      </div>
+      ${m.nextDue?'<div style="font-family:var(--mono);font-size:9px;color:var(--amber);text-align:right;white-space:nowrap">Next:<br>'+m.nextDue+'</div>':''}
+    </div>
+  `).join('');
+}
+
+function addMaintenanceEntry() {
+  maintEditId = null;
+  ['maint-item','maint-hours','maint-cost','maint-by','maint-next','maint-notes'].forEach(id => document.getElementById(id).value='');
+  document.getElementById('maint-date').value = new Date().toISOString().slice(0,10);
+  document.getElementById('maint-cat').value = 'engine';
+  document.getElementById('maint-interval').value = '';
+  document.getElementById('maint-form-title').textContent = 'Log Service';
+  document.getElementById('maint-delete-btn').style.display = 'none';
+  document.getElementById('maint-form').style.display = 'block';
+  setTimeout(() => document.getElementById('maint-form').scrollIntoView({behavior:'smooth'}), 100);
+}
+
+function editMaintEntry(id) {
+  const m = maintenance.find(e => e.id === id);
+  if(!m) return;
+  maintEditId = id;
+  document.getElementById('maint-item').value = m.item||'';
+  document.getElementById('maint-cat').value = m.cat||'engine';
+  document.getElementById('maint-date').value = m.date||'';
+  document.getElementById('maint-hours').value = m.hours||'';
+  document.getElementById('maint-cost').value = m.cost||'';
+  document.getElementById('maint-by').value = m.by||'';
+  document.getElementById('maint-next').value = m.nextDue||'';
+  document.getElementById('maint-interval').value = m.interval||'';
+  document.getElementById('maint-notes').value = m.notes||'';
+  document.getElementById('maint-form-title').textContent = 'Edit Entry';
+  document.getElementById('maint-delete-btn').style.display = 'inline-block';
+  document.getElementById('maint-form').style.display = 'block';
+  setTimeout(() => document.getElementById('maint-form').scrollIntoView({behavior:'smooth'}), 100);
+}
+
+function saveMaintEntry() {
+  const item = document.getElementById('maint-item').value.trim();
+  if(!item) { alert('Enter a service item name'); return; }
+  const entry = {
+    id: maintEditId || genId(),
+    item, cat: document.getElementById('maint-cat').value,
+    date: document.getElementById('maint-date').value,
+    hours: document.getElementById('maint-hours').value,
+    cost: document.getElementById('maint-cost').value,
+    by: document.getElementById('maint-by').value,
+    nextDue: document.getElementById('maint-next').value,
+    interval: document.getElementById('maint-interval').value,
+    notes: document.getElementById('maint-notes').value,
+  };
+  if(maintEditId) { const i = maintenance.findIndex(e=>e.id===maintEditId); if(i>=0) maintenance[i]=entry; }
+  else maintenance.unshift(entry);
+  saveMaintenance(); closeMaintForm(); renderMaintenance();
+}
+
+function deleteMaintEntry() {
+  if(!maintEditId||!confirm('Delete this entry?')) return;
+  maintenance = maintenance.filter(e=>e.id!==maintEditId);
+  saveMaintenance(); closeMaintForm(); renderMaintenance();
+}
+
+function closeMaintForm() { document.getElementById('maint-form').style.display='none'; maintEditId=null; }
+renderMaintenance();
+
+// ── TRIP PLANNER ──
+function updateTripPlan() {
+  const dist = +document.getElementById('tp-dist').value||0;
+  const speed = +document.getElementById('tp-speed').value||18;
+  const fuel = +document.getElementById('tp-fuel').value||0;
+  const burn = +document.getElementById('tp-burn').value||25;
+  const depTime = document.getElementById('tp-time').value||'08:00';
+  const depDate = document.getElementById('tp-date').value;
+
+  if(!dist || !speed) {
+    document.getElementById('tp-eta-val').textContent = '--';
+    document.getElementById('tp-hrs-val').innerHTML = '--<span class="stat-unit">h</span>';
+    return;
+  }
+
+  const hrs = dist / speed;
+  const hh = Math.floor(hrs);
+  const mm = Math.round((hrs - hh) * 60);
+  document.getElementById('tp-hrs-val').innerHTML = hh+'h '+mm+'m';
+
+  // ETA
+  if(depDate && depTime) {
+    const dep = new Date(depDate + 'T' + depTime);
+    const eta = new Date(dep.getTime() + hrs * 3600000);
+    document.getElementById('tp-eta-val').textContent = eta.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',hour12:true});
+  }
+
+  // Fuel
+  const fuelUsed = hrs * burn;
+  const remaining = fuel - fuelUsed;
+  const canGo = remaining > fuel * 0.15;
+  document.getElementById('tp-fuel-val').innerHTML = Math.round(fuelUsed)+'<span class="stat-unit">gal</span>';
+  document.getElementById('tp-fuel-stat').className = 'stat ' + (canGo?'ok':'');
+  document.getElementById('tp-go-val').textContent = canGo ? 'GO' : 'NO-GO';
+  document.getElementById('tp-go-stat').className = 'stat ' + (canGo?'ok':'');
+  document.getElementById('tp-go-val').style.color = canGo ? 'var(--green)' : 'var(--red)';
+}
+
+function sendTripToFloatPlan() {
+  document.getElementById('fp-from').value = document.getElementById('tp-from').value;
+  document.getElementById('fp-to').value = document.getElementById('tp-to').value;
+  const d = document.getElementById('tp-date').value;
+  const t = document.getElementById('tp-time').value;
+  if(d && t) document.getElementById('fp-dep').value = d+'T'+t;
+  saveFP();
+  showTab('floatplan');
+}
+
+function sendTripToFuelCalc() {
+  document.getElementById('f-dist').value = document.getElementById('tp-dist').value;
+  document.getElementById('f-speed').value = document.getElementById('tp-speed').value;
+  document.getElementById('f-aboard').value = document.getElementById('tp-fuel').value;
+  document.getElementById('f-burn').value = document.getElementById('tp-burn').value;
+  calcFuel();
+  showTab('fuel');
+}
+
+// Pre-fill trip planner from vessel profile
+function prefillTripFromVessel() {
+  const v = JSON.parse(localStorage.getItem('vesselProfile')||'{}');
+  if(v['v-speed'] && !document.getElementById('tp-speed').value) document.getElementById('tp-speed').value = v['v-speed'];
+  if(v['v-burn'] && !document.getElementById('tp-burn').value) document.getElementById('tp-burn').value = v['v-burn'];
+  if(v['v-homeport'] && !document.getElementById('tp-from').value) document.getElementById('tp-from').value = v['v-homeport'];
+  document.getElementById('tp-date').value = new Date().toISOString().slice(0,10);
+}
+prefillTripFromVessel();
+
+async function aiPlanTrip() {
+  if(!apiKey) { showApiSetup(); return; }
+  const from = document.getElementById('tp-from').value;
+  const to = document.getElementById('tp-to').value;
+  const dist = document.getElementById('tp-dist').value;
+  const date = document.getElementById('tp-date').value;
+  const time = document.getElementById('tp-time').value;
+  if(!from || !to) { alert('Enter departure and destination first'); return; }
+
+  const respEl = document.getElementById('tp-ai-response');
+  respEl.style.display = 'block';
+  respEl.innerHTML = '<div style="display:flex;gap:4px;align-items:center"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div>';
+
+  const vessel = JSON.parse(localStorage.getItem('vesselProfile')||'{}');
+  const wx = window._liveWeather || {};
+  const prompt = `Plan a trip from ${from} to ${to}${dist?' ('+dist+' nm)':''} departing ${date||'today'} at ${time||'08:00'}. Vessel: ${vessel['v-name']||'my boat'} (${vessel['v-model']||'powerboat'}), cruise speed ${vessel['v-speed']||18}kts, burn rate ${vessel['v-burn']||25}gph, fuel capacity ${vessel['v-fuel-cap']||300}gal. Current conditions: wind ${wx.wind||'unknown'}kt, waves ${wx.wave||'unknown'}ft. Waypoints/notes: ${document.getElementById('tp-waypoints').value||'none'}. Give me: go/no-go assessment, tidal timing recommendations, hazards to watch, suggested waypoints, and any fuel stop recommendations.`;
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body: JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1200,system:SYSTEM_PROMPT,messages:[{role:'user',content:prompt}]})
+    });
+    const data = await res.json();
+    if(data.error) { respEl.innerHTML = '<span style="color:var(--red)">Error: '+data.error.message+'</span>'; }
+    else { respEl.innerHTML = data.content[0].text.replace(/\n/g,'<br>'); }
+  } catch(e) { respEl.innerHTML = '<span style="color:var(--red)">Connection error.</span>'; }
+}
+
+// ── ANCHOR WATCH ──
+let anchorLat = null, anchorLon = null, anchorWatchInterval = null;
+let anchorActive = false;
+let anchorAlarmSound = null;
+
+function updateAnchorRadius() {
+  const r = document.getElementById('anchor-radius').value;
+  document.getElementById('anchor-radius-val').textContent = r + ' ft';
+  document.getElementById('anchor-radius-label').textContent = r + ' ft radius';
+  // Scale the SVG ring
+  const scale = Math.min(1, r / 200);
+  const ringR = Math.round(20 + scale * 50);
+  document.getElementById('anchor-drag-ring').setAttribute('r', ringR);
+}
+
+function setAnchorPosition() {
+  if(!navigator.geolocation) { alert('Geolocation not available on this device/browser.'); return; }
+  navigator.geolocation.getCurrentPosition(pos => {
+    anchorLat = pos.coords.latitude;
+    anchorLon = pos.coords.longitude;
+    const acc = Math.round(pos.coords.accuracy * 3.281);
+    document.getElementById('anchor-position-display').textContent =
+      anchorLat.toFixed(5) + ' N, ' + Math.abs(anchorLon).toFixed(5) + ' W | Accuracy: ±' + acc + 'ft';
+    document.getElementById('anchor-watch-btn').style.display = 'inline-block';
+    document.getElementById('anchor-clear-btn').style.display = 'inline-block';
+    document.getElementById('anchor-accuracy-val').textContent = acc;
+  }, err => alert('Could not get location: ' + err.message), {enableHighAccuracy:true, timeout:10000});
+}
+
+function toggleAnchorWatch() {
+  anchorActive = !anchorActive;
+  const btn = document.getElementById('anchor-watch-btn');
+  const badge = document.getElementById('anchor-status-badge');
+  if(anchorActive) {
+    btn.textContent = 'Stop Watch';
+    btn.style.background = 'var(--red)';
+    badge.textContent = 'WATCHING';
+    badge.style.background = 'var(--green-dim)';
+    badge.style.color = 'var(--green)';
+    anchorWatchInterval = setInterval(checkAnchorDrag, 5000);
+    checkAnchorDrag();
+  } else {
+    btn.textContent = 'Start Watch';
+    btn.style.background = '';
+    badge.textContent = 'INACTIVE';
+    badge.style.background = 'var(--panel2)';
+    badge.style.color = 'var(--text3)';
+    clearInterval(anchorWatchInterval);
+    document.getElementById('anchor-alert').style.display = 'none';
+  }
+}
+
+function checkAnchorDrag() {
+  if(!anchorLat || !anchorLon || !anchorActive) return;
+  navigator.geolocation.getCurrentPosition(pos => {
+    const dist = haversineDistance(anchorLat, anchorLon, pos.coords.latitude, pos.coords.longitude);
+    const distFt = Math.round(dist * 3.281);
+    const radius = +document.getElementById('anchor-radius').value;
+    const acc = Math.round(pos.coords.accuracy * 3.281);
+    document.getElementById('anchor-dist-val').innerHTML = distFt + '<span class="stat-unit">ft</span>';
+    document.getElementById('anchor-accuracy-val').textContent = acc;
+
+    // Bearing
+    const brg = bearing(anchorLat, anchorLon, pos.coords.latitude, pos.coords.longitude);
+    document.getElementById('anchor-bearing-val').innerHTML = Math.round(brg) + '<span class="stat-unit">deg</span>';
+
+    // Update dot on compass
+    const angle = (brg * Math.PI / 180);
+    const r = Math.min(60, (distFt / radius) * 60);
+    const dotX = 80 + r * Math.sin(angle);
+    const dotY = 80 - r * Math.cos(angle);
+    document.getElementById('anchor-dot').setAttribute('cx', dotX.toFixed(1));
+    document.getElementById('anchor-dot').setAttribute('cy', dotY.toFixed(1));
+    document.getElementById('anchor-dot').setAttribute('fill', distFt > radius ? 'var(--red)' : 'var(--amber)');
+
+    const alertEl = document.getElementById('anchor-alert');
+    if(distFt > radius) {
+      alertEl.style.display = 'block';
+      alertEl.textContent = 'ANCHOR DRAG ALERT — '+distFt+'ft from drop point';
+      // Try to vibrate and play tone
+      if(navigator.vibrate) navigator.vibrate([500,200,500,200,500]);
+      playAlarmTone();
+    } else {
+      alertEl.style.display = 'none';
+    }
+    document.getElementById('anchor-dist-stat').className = 'stat ' + (distFt > radius ? '' : (distFt > radius*0.7 ? 'warn' : 'ok'));
+  }, null, {enableHighAccuracy:true, timeout:8000});
+}
+
+function haversineDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371000; // meters
+  const dLat = (lat2-lat1) * Math.PI/180;
+  const dLon = (lon2-lon1) * Math.PI/180;
+  const a = Math.sin(dLat/2)*Math.sin(dLat/2) + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)*Math.sin(dLon/2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+function bearing(lat1, lon1, lat2, lon2) {
+  const dLon = (lon2-lon1) * Math.PI/180;
+  const y = Math.sin(dLon) * Math.cos(lat2*Math.PI/180);
+  const x = Math.cos(lat1*Math.PI/180)*Math.sin(lat2*Math.PI/180) - Math.sin(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.cos(dLon);
+  return ((Math.atan2(y,x)*180/Math.PI) + 360) % 360;
+}
+
+function playAlarmTone() {
+  try {
+    const ctx = new (window.AudioContext||window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.frequency.value = 880;
+    osc.type = 'sine';
+    gain.gain.setValueAtTime(0.3, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime+1.5);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime+1.5);
+  } catch(e) {}
+}
+
+function clearAnchor() {
+  if(anchorActive) toggleAnchorWatch();
+  anchorLat = null; anchorLon = null;
+  document.getElementById('anchor-position-display').textContent = 'Position not set';
+  document.getElementById('anchor-watch-btn').style.display = 'none';
+  document.getElementById('anchor-clear-btn').style.display = 'none';
+  document.getElementById('anchor-dist-val').innerHTML = '--<span class="stat-unit">ft</span>';
+  document.getElementById('anchor-bearing-val').innerHTML = '--<span class="stat-unit">deg</span>';
+  document.getElementById('anchor-accuracy-val').textContent = '--';
+  document.getElementById('anchor-dot').setAttribute('cx', 80);
+  document.getElementById('anchor-dot').setAttribute('cy', 80);
+}
+
+// ── FLOAT PLAN SHARING ──
+function generateAndShareFP() {
+  generateFP();
+  const txt = document.getElementById('fp-output').textContent;
+  if(navigator.share) {
+    navigator.share({title:"Float Plan", text: txt}).catch(()=>{});
+  } else if(navigator.clipboard) {
+    navigator.clipboard.writeText(txt);
+    alert('Float plan copied to clipboard — paste into a text or email to send.');
+  }
+}
+
+// Add share button to float plan tab
+setTimeout(() => {
+  const fpBtn = document.querySelector('#tab-floatplan .btn-primary');
+  if(fpBtn && !document.getElementById('fp-share-btn')) {
+    const shareBtn = document.createElement('button');
+    shareBtn.id = 'fp-share-btn';
+    shareBtn.className = 'btn-sec';
+    shareBtn.textContent = 'Share Float Plan';
+    shareBtn.onclick = generateAndShareFP;
+    fpBtn.parentNode.insertBefore(shareBtn, fpBtn.nextSibling);
+  }
+}, 500);
+
+renderEquipment();
 }
 
 function deleteEquipmentItem() {
@@ -3020,7 +3969,364 @@ function deleteEquipmentItem() {
   equipment = equipment.filter(e => e.id !== eqEditId);
   saveEquipment();
   closeEqModal();
-  renderEquipment();
+  // ── MAINTENANCE LOG ──
+let maintenance = JSON.parse(localStorage.getItem('maintenance')||'[]');
+let maintEditId = null;
+const MAINT_CAT_ICONS = {engine:'🔧',mechanical:'⚙️',electrical:'⚡',hull:'🚢',safety:'🦺',electronics:'📡',other:'📦'};
+
+function saveMaintenance() { localStorage.setItem('maintenance', JSON.stringify(maintenance)); }
+
+function renderMaintenance() {
+  const list = document.getElementById('maint-list');
+  const empty = document.getElementById('maint-empty');
+  const dueList = document.getElementById('maint-due-list');
+  const now = new Date();
+
+  // Due/overdue items
+  const due = maintenance.filter(m => m.nextDue && new Date(m.nextDue) <= new Date(now.getTime() + 30*24*60*60*1000));
+  if(due.length) {
+    dueList.innerHTML = due.map(m => {
+      const d = new Date(m.nextDue);
+      const overdue = d < now;
+      return `<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:${overdue?'var(--red-dim)':'var(--amber-dim)'};border:1px solid ${overdue?'rgba(224,90,90,0.3)':'rgba(232,168,76,0.3)'};border-radius:5px;margin-bottom:6px;cursor:pointer" onclick="editMaintEntry('${m.id}')">
+        <span style="font-size:16px">${MAINT_CAT_ICONS[m.cat]||'📦'}</span>
+        <div style="flex:1"><div style="font-family:var(--body);font-size:13px;color:var(--text)">${m.item}</div><div style="font-family:var(--mono);font-size:10px;color:${overdue?'var(--red)':'var(--amber)'}">Due: ${m.nextDue}</div></div>
+      </div>`;
+    }).join('');
+    document.getElementById('maint-due-section').style.display = 'block';
+  } else {
+    document.getElementById('maint-due-section').style.display = 'none';
+  }
+
+  if(!maintenance.length) { list.innerHTML = ''; empty.style.display = 'block'; return; }
+  empty.style.display = 'none';
+  const sorted = [...maintenance].sort((a,b) => new Date(b.date) - new Date(a.date));
+  list.innerHTML = sorted.map(m => `
+    <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;background:var(--panel2);border:1px solid var(--border2);border-radius:6px;cursor:pointer;transition:border-color 0.15s" onclick="editMaintEntry('${m.id}')" onmouseover="this.style.borderColor='var(--border)'" onmouseout="this.style.borderColor='var(--border2)')">
+      <span style="font-size:18px;flex-shrink:0">${MAINT_CAT_ICONS[m.cat]||'📦'}</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-family:var(--body);font-size:13px;font-weight:500;color:var(--text)">${m.item}</div>
+        <div style="font-family:var(--mono);font-size:10px;color:var(--text3);margin-top:2px">${m.date||''} ${m.hours?'· '+m.hours+' hrs':''} ${m.by?'· '+m.by:''} ${m.cost?'· $'+parseFloat(m.cost).toFixed(0):''}</div>
+        ${m.notes?'<div style="font-family:var(--body);font-size:11px;color:var(--text3);margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+m.notes+'</div>':''}
+      </div>
+      ${m.nextDue?'<div style="font-family:var(--mono);font-size:9px;color:var(--amber);text-align:right;white-space:nowrap">Next:<br>'+m.nextDue+'</div>':''}
+    </div>
+  `).join('');
+}
+
+function addMaintenanceEntry() {
+  maintEditId = null;
+  ['maint-item','maint-hours','maint-cost','maint-by','maint-next','maint-notes'].forEach(id => document.getElementById(id).value='');
+  document.getElementById('maint-date').value = new Date().toISOString().slice(0,10);
+  document.getElementById('maint-cat').value = 'engine';
+  document.getElementById('maint-interval').value = '';
+  document.getElementById('maint-form-title').textContent = 'Log Service';
+  document.getElementById('maint-delete-btn').style.display = 'none';
+  document.getElementById('maint-form').style.display = 'block';
+  setTimeout(() => document.getElementById('maint-form').scrollIntoView({behavior:'smooth'}), 100);
+}
+
+function editMaintEntry(id) {
+  const m = maintenance.find(e => e.id === id);
+  if(!m) return;
+  maintEditId = id;
+  document.getElementById('maint-item').value = m.item||'';
+  document.getElementById('maint-cat').value = m.cat||'engine';
+  document.getElementById('maint-date').value = m.date||'';
+  document.getElementById('maint-hours').value = m.hours||'';
+  document.getElementById('maint-cost').value = m.cost||'';
+  document.getElementById('maint-by').value = m.by||'';
+  document.getElementById('maint-next').value = m.nextDue||'';
+  document.getElementById('maint-interval').value = m.interval||'';
+  document.getElementById('maint-notes').value = m.notes||'';
+  document.getElementById('maint-form-title').textContent = 'Edit Entry';
+  document.getElementById('maint-delete-btn').style.display = 'inline-block';
+  document.getElementById('maint-form').style.display = 'block';
+  setTimeout(() => document.getElementById('maint-form').scrollIntoView({behavior:'smooth'}), 100);
+}
+
+function saveMaintEntry() {
+  const item = document.getElementById('maint-item').value.trim();
+  if(!item) { alert('Enter a service item name'); return; }
+  const entry = {
+    id: maintEditId || genId(),
+    item, cat: document.getElementById('maint-cat').value,
+    date: document.getElementById('maint-date').value,
+    hours: document.getElementById('maint-hours').value,
+    cost: document.getElementById('maint-cost').value,
+    by: document.getElementById('maint-by').value,
+    nextDue: document.getElementById('maint-next').value,
+    interval: document.getElementById('maint-interval').value,
+    notes: document.getElementById('maint-notes').value,
+  };
+  if(maintEditId) { const i = maintenance.findIndex(e=>e.id===maintEditId); if(i>=0) maintenance[i]=entry; }
+  else maintenance.unshift(entry);
+  saveMaintenance(); closeMaintForm(); renderMaintenance();
+}
+
+function deleteMaintEntry() {
+  if(!maintEditId||!confirm('Delete this entry?')) return;
+  maintenance = maintenance.filter(e=>e.id!==maintEditId);
+  saveMaintenance(); closeMaintForm(); renderMaintenance();
+}
+
+function closeMaintForm() { document.getElementById('maint-form').style.display='none'; maintEditId=null; }
+renderMaintenance();
+
+// ── TRIP PLANNER ──
+function updateTripPlan() {
+  const dist = +document.getElementById('tp-dist').value||0;
+  const speed = +document.getElementById('tp-speed').value||18;
+  const fuel = +document.getElementById('tp-fuel').value||0;
+  const burn = +document.getElementById('tp-burn').value||25;
+  const depTime = document.getElementById('tp-time').value||'08:00';
+  const depDate = document.getElementById('tp-date').value;
+
+  if(!dist || !speed) {
+    document.getElementById('tp-eta-val').textContent = '--';
+    document.getElementById('tp-hrs-val').innerHTML = '--<span class="stat-unit">h</span>';
+    return;
+  }
+
+  const hrs = dist / speed;
+  const hh = Math.floor(hrs);
+  const mm = Math.round((hrs - hh) * 60);
+  document.getElementById('tp-hrs-val').innerHTML = hh+'h '+mm+'m';
+
+  // ETA
+  if(depDate && depTime) {
+    const dep = new Date(depDate + 'T' + depTime);
+    const eta = new Date(dep.getTime() + hrs * 3600000);
+    document.getElementById('tp-eta-val').textContent = eta.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',hour12:true});
+  }
+
+  // Fuel
+  const fuelUsed = hrs * burn;
+  const remaining = fuel - fuelUsed;
+  const canGo = remaining > fuel * 0.15;
+  document.getElementById('tp-fuel-val').innerHTML = Math.round(fuelUsed)+'<span class="stat-unit">gal</span>';
+  document.getElementById('tp-fuel-stat').className = 'stat ' + (canGo?'ok':'');
+  document.getElementById('tp-go-val').textContent = canGo ? 'GO' : 'NO-GO';
+  document.getElementById('tp-go-stat').className = 'stat ' + (canGo?'ok':'');
+  document.getElementById('tp-go-val').style.color = canGo ? 'var(--green)' : 'var(--red)';
+}
+
+function sendTripToFloatPlan() {
+  document.getElementById('fp-from').value = document.getElementById('tp-from').value;
+  document.getElementById('fp-to').value = document.getElementById('tp-to').value;
+  const d = document.getElementById('tp-date').value;
+  const t = document.getElementById('tp-time').value;
+  if(d && t) document.getElementById('fp-dep').value = d+'T'+t;
+  saveFP();
+  showTab('floatplan');
+}
+
+function sendTripToFuelCalc() {
+  document.getElementById('f-dist').value = document.getElementById('tp-dist').value;
+  document.getElementById('f-speed').value = document.getElementById('tp-speed').value;
+  document.getElementById('f-aboard').value = document.getElementById('tp-fuel').value;
+  document.getElementById('f-burn').value = document.getElementById('tp-burn').value;
+  calcFuel();
+  showTab('fuel');
+}
+
+// Pre-fill trip planner from vessel profile
+function prefillTripFromVessel() {
+  const v = JSON.parse(localStorage.getItem('vesselProfile')||'{}');
+  if(v['v-speed'] && !document.getElementById('tp-speed').value) document.getElementById('tp-speed').value = v['v-speed'];
+  if(v['v-burn'] && !document.getElementById('tp-burn').value) document.getElementById('tp-burn').value = v['v-burn'];
+  if(v['v-homeport'] && !document.getElementById('tp-from').value) document.getElementById('tp-from').value = v['v-homeport'];
+  document.getElementById('tp-date').value = new Date().toISOString().slice(0,10);
+}
+prefillTripFromVessel();
+
+async function aiPlanTrip() {
+  if(!apiKey) { showApiSetup(); return; }
+  const from = document.getElementById('tp-from').value;
+  const to = document.getElementById('tp-to').value;
+  const dist = document.getElementById('tp-dist').value;
+  const date = document.getElementById('tp-date').value;
+  const time = document.getElementById('tp-time').value;
+  if(!from || !to) { alert('Enter departure and destination first'); return; }
+
+  const respEl = document.getElementById('tp-ai-response');
+  respEl.style.display = 'block';
+  respEl.innerHTML = '<div style="display:flex;gap:4px;align-items:center"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div>';
+
+  const vessel = JSON.parse(localStorage.getItem('vesselProfile')||'{}');
+  const wx = window._liveWeather || {};
+  const prompt = `Plan a trip from ${from} to ${to}${dist?' ('+dist+' nm)':''} departing ${date||'today'} at ${time||'08:00'}. Vessel: ${vessel['v-name']||'my boat'} (${vessel['v-model']||'powerboat'}), cruise speed ${vessel['v-speed']||18}kts, burn rate ${vessel['v-burn']||25}gph, fuel capacity ${vessel['v-fuel-cap']||300}gal. Current conditions: wind ${wx.wind||'unknown'}kt, waves ${wx.wave||'unknown'}ft. Waypoints/notes: ${document.getElementById('tp-waypoints').value||'none'}. Give me: go/no-go assessment, tidal timing recommendations, hazards to watch, suggested waypoints, and any fuel stop recommendations.`;
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body: JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1200,system:SYSTEM_PROMPT,messages:[{role:'user',content:prompt}]})
+    });
+    const data = await res.json();
+    if(data.error) { respEl.innerHTML = '<span style="color:var(--red)">Error: '+data.error.message+'</span>'; }
+    else { respEl.innerHTML = data.content[0].text.replace(/\n/g,'<br>'); }
+  } catch(e) { respEl.innerHTML = '<span style="color:var(--red)">Connection error.</span>'; }
+}
+
+// ── ANCHOR WATCH ──
+let anchorLat = null, anchorLon = null, anchorWatchInterval = null;
+let anchorActive = false;
+let anchorAlarmSound = null;
+
+function updateAnchorRadius() {
+  const r = document.getElementById('anchor-radius').value;
+  document.getElementById('anchor-radius-val').textContent = r + ' ft';
+  document.getElementById('anchor-radius-label').textContent = r + ' ft radius';
+  // Scale the SVG ring
+  const scale = Math.min(1, r / 200);
+  const ringR = Math.round(20 + scale * 50);
+  document.getElementById('anchor-drag-ring').setAttribute('r', ringR);
+}
+
+function setAnchorPosition() {
+  if(!navigator.geolocation) { alert('Geolocation not available on this device/browser.'); return; }
+  navigator.geolocation.getCurrentPosition(pos => {
+    anchorLat = pos.coords.latitude;
+    anchorLon = pos.coords.longitude;
+    const acc = Math.round(pos.coords.accuracy * 3.281);
+    document.getElementById('anchor-position-display').textContent =
+      anchorLat.toFixed(5) + ' N, ' + Math.abs(anchorLon).toFixed(5) + ' W | Accuracy: ±' + acc + 'ft';
+    document.getElementById('anchor-watch-btn').style.display = 'inline-block';
+    document.getElementById('anchor-clear-btn').style.display = 'inline-block';
+    document.getElementById('anchor-accuracy-val').textContent = acc;
+  }, err => alert('Could not get location: ' + err.message), {enableHighAccuracy:true, timeout:10000});
+}
+
+function toggleAnchorWatch() {
+  anchorActive = !anchorActive;
+  const btn = document.getElementById('anchor-watch-btn');
+  const badge = document.getElementById('anchor-status-badge');
+  if(anchorActive) {
+    btn.textContent = 'Stop Watch';
+    btn.style.background = 'var(--red)';
+    badge.textContent = 'WATCHING';
+    badge.style.background = 'var(--green-dim)';
+    badge.style.color = 'var(--green)';
+    anchorWatchInterval = setInterval(checkAnchorDrag, 5000);
+    checkAnchorDrag();
+  } else {
+    btn.textContent = 'Start Watch';
+    btn.style.background = '';
+    badge.textContent = 'INACTIVE';
+    badge.style.background = 'var(--panel2)';
+    badge.style.color = 'var(--text3)';
+    clearInterval(anchorWatchInterval);
+    document.getElementById('anchor-alert').style.display = 'none';
+  }
+}
+
+function checkAnchorDrag() {
+  if(!anchorLat || !anchorLon || !anchorActive) return;
+  navigator.geolocation.getCurrentPosition(pos => {
+    const dist = haversineDistance(anchorLat, anchorLon, pos.coords.latitude, pos.coords.longitude);
+    const distFt = Math.round(dist * 3.281);
+    const radius = +document.getElementById('anchor-radius').value;
+    const acc = Math.round(pos.coords.accuracy * 3.281);
+    document.getElementById('anchor-dist-val').innerHTML = distFt + '<span class="stat-unit">ft</span>';
+    document.getElementById('anchor-accuracy-val').textContent = acc;
+
+    // Bearing
+    const brg = bearing(anchorLat, anchorLon, pos.coords.latitude, pos.coords.longitude);
+    document.getElementById('anchor-bearing-val').innerHTML = Math.round(brg) + '<span class="stat-unit">deg</span>';
+
+    // Update dot on compass
+    const angle = (brg * Math.PI / 180);
+    const r = Math.min(60, (distFt / radius) * 60);
+    const dotX = 80 + r * Math.sin(angle);
+    const dotY = 80 - r * Math.cos(angle);
+    document.getElementById('anchor-dot').setAttribute('cx', dotX.toFixed(1));
+    document.getElementById('anchor-dot').setAttribute('cy', dotY.toFixed(1));
+    document.getElementById('anchor-dot').setAttribute('fill', distFt > radius ? 'var(--red)' : 'var(--amber)');
+
+    const alertEl = document.getElementById('anchor-alert');
+    if(distFt > radius) {
+      alertEl.style.display = 'block';
+      alertEl.textContent = 'ANCHOR DRAG ALERT — '+distFt+'ft from drop point';
+      // Try to vibrate and play tone
+      if(navigator.vibrate) navigator.vibrate([500,200,500,200,500]);
+      playAlarmTone();
+    } else {
+      alertEl.style.display = 'none';
+    }
+    document.getElementById('anchor-dist-stat').className = 'stat ' + (distFt > radius ? '' : (distFt > radius*0.7 ? 'warn' : 'ok'));
+  }, null, {enableHighAccuracy:true, timeout:8000});
+}
+
+function haversineDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371000; // meters
+  const dLat = (lat2-lat1) * Math.PI/180;
+  const dLon = (lon2-lon1) * Math.PI/180;
+  const a = Math.sin(dLat/2)*Math.sin(dLat/2) + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)*Math.sin(dLon/2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+function bearing(lat1, lon1, lat2, lon2) {
+  const dLon = (lon2-lon1) * Math.PI/180;
+  const y = Math.sin(dLon) * Math.cos(lat2*Math.PI/180);
+  const x = Math.cos(lat1*Math.PI/180)*Math.sin(lat2*Math.PI/180) - Math.sin(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.cos(dLon);
+  return ((Math.atan2(y,x)*180/Math.PI) + 360) % 360;
+}
+
+function playAlarmTone() {
+  try {
+    const ctx = new (window.AudioContext||window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.frequency.value = 880;
+    osc.type = 'sine';
+    gain.gain.setValueAtTime(0.3, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime+1.5);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime+1.5);
+  } catch(e) {}
+}
+
+function clearAnchor() {
+  if(anchorActive) toggleAnchorWatch();
+  anchorLat = null; anchorLon = null;
+  document.getElementById('anchor-position-display').textContent = 'Position not set';
+  document.getElementById('anchor-watch-btn').style.display = 'none';
+  document.getElementById('anchor-clear-btn').style.display = 'none';
+  document.getElementById('anchor-dist-val').innerHTML = '--<span class="stat-unit">ft</span>';
+  document.getElementById('anchor-bearing-val').innerHTML = '--<span class="stat-unit">deg</span>';
+  document.getElementById('anchor-accuracy-val').textContent = '--';
+  document.getElementById('anchor-dot').setAttribute('cx', 80);
+  document.getElementById('anchor-dot').setAttribute('cy', 80);
+}
+
+// ── FLOAT PLAN SHARING ──
+function generateAndShareFP() {
+  generateFP();
+  const txt = document.getElementById('fp-output').textContent;
+  if(navigator.share) {
+    navigator.share({title:"Float Plan", text: txt}).catch(()=>{});
+  } else if(navigator.clipboard) {
+    navigator.clipboard.writeText(txt);
+    alert('Float plan copied to clipboard — paste into a text or email to send.');
+  }
+}
+
+// Add share button to float plan tab
+setTimeout(() => {
+  const fpBtn = document.querySelector('#tab-floatplan .btn-primary');
+  if(fpBtn && !document.getElementById('fp-share-btn')) {
+    const shareBtn = document.createElement('button');
+    shareBtn.id = 'fp-share-btn';
+    shareBtn.className = 'btn-sec';
+    shareBtn.textContent = 'Share Float Plan';
+    shareBtn.onclick = generateAndShareFP;
+    fpBtn.parentNode.insertBefore(shareBtn, fpBtn.nextSibling);
+  }
+}, 500);
+
+renderEquipment();
 }
 
 function closeEqModal() {
@@ -3032,7 +4338,364 @@ function filterEquipment(cat, el) {
   eqFilterCurrent = cat;
   document.querySelectorAll('.eq-filter').forEach(b => b.classList.remove('active'));
   if(el) el.classList.add('active');
-  renderEquipment();
+  // ── MAINTENANCE LOG ──
+let maintenance = JSON.parse(localStorage.getItem('maintenance')||'[]');
+let maintEditId = null;
+const MAINT_CAT_ICONS = {engine:'🔧',mechanical:'⚙️',electrical:'⚡',hull:'🚢',safety:'🦺',electronics:'📡',other:'📦'};
+
+function saveMaintenance() { localStorage.setItem('maintenance', JSON.stringify(maintenance)); }
+
+function renderMaintenance() {
+  const list = document.getElementById('maint-list');
+  const empty = document.getElementById('maint-empty');
+  const dueList = document.getElementById('maint-due-list');
+  const now = new Date();
+
+  // Due/overdue items
+  const due = maintenance.filter(m => m.nextDue && new Date(m.nextDue) <= new Date(now.getTime() + 30*24*60*60*1000));
+  if(due.length) {
+    dueList.innerHTML = due.map(m => {
+      const d = new Date(m.nextDue);
+      const overdue = d < now;
+      return `<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:${overdue?'var(--red-dim)':'var(--amber-dim)'};border:1px solid ${overdue?'rgba(224,90,90,0.3)':'rgba(232,168,76,0.3)'};border-radius:5px;margin-bottom:6px;cursor:pointer" onclick="editMaintEntry('${m.id}')">
+        <span style="font-size:16px">${MAINT_CAT_ICONS[m.cat]||'📦'}</span>
+        <div style="flex:1"><div style="font-family:var(--body);font-size:13px;color:var(--text)">${m.item}</div><div style="font-family:var(--mono);font-size:10px;color:${overdue?'var(--red)':'var(--amber)'}">Due: ${m.nextDue}</div></div>
+      </div>`;
+    }).join('');
+    document.getElementById('maint-due-section').style.display = 'block';
+  } else {
+    document.getElementById('maint-due-section').style.display = 'none';
+  }
+
+  if(!maintenance.length) { list.innerHTML = ''; empty.style.display = 'block'; return; }
+  empty.style.display = 'none';
+  const sorted = [...maintenance].sort((a,b) => new Date(b.date) - new Date(a.date));
+  list.innerHTML = sorted.map(m => `
+    <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;background:var(--panel2);border:1px solid var(--border2);border-radius:6px;cursor:pointer;transition:border-color 0.15s" onclick="editMaintEntry('${m.id}')" onmouseover="this.style.borderColor='var(--border)'" onmouseout="this.style.borderColor='var(--border2)')">
+      <span style="font-size:18px;flex-shrink:0">${MAINT_CAT_ICONS[m.cat]||'📦'}</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-family:var(--body);font-size:13px;font-weight:500;color:var(--text)">${m.item}</div>
+        <div style="font-family:var(--mono);font-size:10px;color:var(--text3);margin-top:2px">${m.date||''} ${m.hours?'· '+m.hours+' hrs':''} ${m.by?'· '+m.by:''} ${m.cost?'· $'+parseFloat(m.cost).toFixed(0):''}</div>
+        ${m.notes?'<div style="font-family:var(--body);font-size:11px;color:var(--text3);margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+m.notes+'</div>':''}
+      </div>
+      ${m.nextDue?'<div style="font-family:var(--mono);font-size:9px;color:var(--amber);text-align:right;white-space:nowrap">Next:<br>'+m.nextDue+'</div>':''}
+    </div>
+  `).join('');
+}
+
+function addMaintenanceEntry() {
+  maintEditId = null;
+  ['maint-item','maint-hours','maint-cost','maint-by','maint-next','maint-notes'].forEach(id => document.getElementById(id).value='');
+  document.getElementById('maint-date').value = new Date().toISOString().slice(0,10);
+  document.getElementById('maint-cat').value = 'engine';
+  document.getElementById('maint-interval').value = '';
+  document.getElementById('maint-form-title').textContent = 'Log Service';
+  document.getElementById('maint-delete-btn').style.display = 'none';
+  document.getElementById('maint-form').style.display = 'block';
+  setTimeout(() => document.getElementById('maint-form').scrollIntoView({behavior:'smooth'}), 100);
+}
+
+function editMaintEntry(id) {
+  const m = maintenance.find(e => e.id === id);
+  if(!m) return;
+  maintEditId = id;
+  document.getElementById('maint-item').value = m.item||'';
+  document.getElementById('maint-cat').value = m.cat||'engine';
+  document.getElementById('maint-date').value = m.date||'';
+  document.getElementById('maint-hours').value = m.hours||'';
+  document.getElementById('maint-cost').value = m.cost||'';
+  document.getElementById('maint-by').value = m.by||'';
+  document.getElementById('maint-next').value = m.nextDue||'';
+  document.getElementById('maint-interval').value = m.interval||'';
+  document.getElementById('maint-notes').value = m.notes||'';
+  document.getElementById('maint-form-title').textContent = 'Edit Entry';
+  document.getElementById('maint-delete-btn').style.display = 'inline-block';
+  document.getElementById('maint-form').style.display = 'block';
+  setTimeout(() => document.getElementById('maint-form').scrollIntoView({behavior:'smooth'}), 100);
+}
+
+function saveMaintEntry() {
+  const item = document.getElementById('maint-item').value.trim();
+  if(!item) { alert('Enter a service item name'); return; }
+  const entry = {
+    id: maintEditId || genId(),
+    item, cat: document.getElementById('maint-cat').value,
+    date: document.getElementById('maint-date').value,
+    hours: document.getElementById('maint-hours').value,
+    cost: document.getElementById('maint-cost').value,
+    by: document.getElementById('maint-by').value,
+    nextDue: document.getElementById('maint-next').value,
+    interval: document.getElementById('maint-interval').value,
+    notes: document.getElementById('maint-notes').value,
+  };
+  if(maintEditId) { const i = maintenance.findIndex(e=>e.id===maintEditId); if(i>=0) maintenance[i]=entry; }
+  else maintenance.unshift(entry);
+  saveMaintenance(); closeMaintForm(); renderMaintenance();
+}
+
+function deleteMaintEntry() {
+  if(!maintEditId||!confirm('Delete this entry?')) return;
+  maintenance = maintenance.filter(e=>e.id!==maintEditId);
+  saveMaintenance(); closeMaintForm(); renderMaintenance();
+}
+
+function closeMaintForm() { document.getElementById('maint-form').style.display='none'; maintEditId=null; }
+renderMaintenance();
+
+// ── TRIP PLANNER ──
+function updateTripPlan() {
+  const dist = +document.getElementById('tp-dist').value||0;
+  const speed = +document.getElementById('tp-speed').value||18;
+  const fuel = +document.getElementById('tp-fuel').value||0;
+  const burn = +document.getElementById('tp-burn').value||25;
+  const depTime = document.getElementById('tp-time').value||'08:00';
+  const depDate = document.getElementById('tp-date').value;
+
+  if(!dist || !speed) {
+    document.getElementById('tp-eta-val').textContent = '--';
+    document.getElementById('tp-hrs-val').innerHTML = '--<span class="stat-unit">h</span>';
+    return;
+  }
+
+  const hrs = dist / speed;
+  const hh = Math.floor(hrs);
+  const mm = Math.round((hrs - hh) * 60);
+  document.getElementById('tp-hrs-val').innerHTML = hh+'h '+mm+'m';
+
+  // ETA
+  if(depDate && depTime) {
+    const dep = new Date(depDate + 'T' + depTime);
+    const eta = new Date(dep.getTime() + hrs * 3600000);
+    document.getElementById('tp-eta-val').textContent = eta.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',hour12:true});
+  }
+
+  // Fuel
+  const fuelUsed = hrs * burn;
+  const remaining = fuel - fuelUsed;
+  const canGo = remaining > fuel * 0.15;
+  document.getElementById('tp-fuel-val').innerHTML = Math.round(fuelUsed)+'<span class="stat-unit">gal</span>';
+  document.getElementById('tp-fuel-stat').className = 'stat ' + (canGo?'ok':'');
+  document.getElementById('tp-go-val').textContent = canGo ? 'GO' : 'NO-GO';
+  document.getElementById('tp-go-stat').className = 'stat ' + (canGo?'ok':'');
+  document.getElementById('tp-go-val').style.color = canGo ? 'var(--green)' : 'var(--red)';
+}
+
+function sendTripToFloatPlan() {
+  document.getElementById('fp-from').value = document.getElementById('tp-from').value;
+  document.getElementById('fp-to').value = document.getElementById('tp-to').value;
+  const d = document.getElementById('tp-date').value;
+  const t = document.getElementById('tp-time').value;
+  if(d && t) document.getElementById('fp-dep').value = d+'T'+t;
+  saveFP();
+  showTab('floatplan');
+}
+
+function sendTripToFuelCalc() {
+  document.getElementById('f-dist').value = document.getElementById('tp-dist').value;
+  document.getElementById('f-speed').value = document.getElementById('tp-speed').value;
+  document.getElementById('f-aboard').value = document.getElementById('tp-fuel').value;
+  document.getElementById('f-burn').value = document.getElementById('tp-burn').value;
+  calcFuel();
+  showTab('fuel');
+}
+
+// Pre-fill trip planner from vessel profile
+function prefillTripFromVessel() {
+  const v = JSON.parse(localStorage.getItem('vesselProfile')||'{}');
+  if(v['v-speed'] && !document.getElementById('tp-speed').value) document.getElementById('tp-speed').value = v['v-speed'];
+  if(v['v-burn'] && !document.getElementById('tp-burn').value) document.getElementById('tp-burn').value = v['v-burn'];
+  if(v['v-homeport'] && !document.getElementById('tp-from').value) document.getElementById('tp-from').value = v['v-homeport'];
+  document.getElementById('tp-date').value = new Date().toISOString().slice(0,10);
+}
+prefillTripFromVessel();
+
+async function aiPlanTrip() {
+  if(!apiKey) { showApiSetup(); return; }
+  const from = document.getElementById('tp-from').value;
+  const to = document.getElementById('tp-to').value;
+  const dist = document.getElementById('tp-dist').value;
+  const date = document.getElementById('tp-date').value;
+  const time = document.getElementById('tp-time').value;
+  if(!from || !to) { alert('Enter departure and destination first'); return; }
+
+  const respEl = document.getElementById('tp-ai-response');
+  respEl.style.display = 'block';
+  respEl.innerHTML = '<div style="display:flex;gap:4px;align-items:center"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div>';
+
+  const vessel = JSON.parse(localStorage.getItem('vesselProfile')||'{}');
+  const wx = window._liveWeather || {};
+  const prompt = `Plan a trip from ${from} to ${to}${dist?' ('+dist+' nm)':''} departing ${date||'today'} at ${time||'08:00'}. Vessel: ${vessel['v-name']||'my boat'} (${vessel['v-model']||'powerboat'}), cruise speed ${vessel['v-speed']||18}kts, burn rate ${vessel['v-burn']||25}gph, fuel capacity ${vessel['v-fuel-cap']||300}gal. Current conditions: wind ${wx.wind||'unknown'}kt, waves ${wx.wave||'unknown'}ft. Waypoints/notes: ${document.getElementById('tp-waypoints').value||'none'}. Give me: go/no-go assessment, tidal timing recommendations, hazards to watch, suggested waypoints, and any fuel stop recommendations.`;
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body: JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1200,system:SYSTEM_PROMPT,messages:[{role:'user',content:prompt}]})
+    });
+    const data = await res.json();
+    if(data.error) { respEl.innerHTML = '<span style="color:var(--red)">Error: '+data.error.message+'</span>'; }
+    else { respEl.innerHTML = data.content[0].text.replace(/\n/g,'<br>'); }
+  } catch(e) { respEl.innerHTML = '<span style="color:var(--red)">Connection error.</span>'; }
+}
+
+// ── ANCHOR WATCH ──
+let anchorLat = null, anchorLon = null, anchorWatchInterval = null;
+let anchorActive = false;
+let anchorAlarmSound = null;
+
+function updateAnchorRadius() {
+  const r = document.getElementById('anchor-radius').value;
+  document.getElementById('anchor-radius-val').textContent = r + ' ft';
+  document.getElementById('anchor-radius-label').textContent = r + ' ft radius';
+  // Scale the SVG ring
+  const scale = Math.min(1, r / 200);
+  const ringR = Math.round(20 + scale * 50);
+  document.getElementById('anchor-drag-ring').setAttribute('r', ringR);
+}
+
+function setAnchorPosition() {
+  if(!navigator.geolocation) { alert('Geolocation not available on this device/browser.'); return; }
+  navigator.geolocation.getCurrentPosition(pos => {
+    anchorLat = pos.coords.latitude;
+    anchorLon = pos.coords.longitude;
+    const acc = Math.round(pos.coords.accuracy * 3.281);
+    document.getElementById('anchor-position-display').textContent =
+      anchorLat.toFixed(5) + ' N, ' + Math.abs(anchorLon).toFixed(5) + ' W | Accuracy: ±' + acc + 'ft';
+    document.getElementById('anchor-watch-btn').style.display = 'inline-block';
+    document.getElementById('anchor-clear-btn').style.display = 'inline-block';
+    document.getElementById('anchor-accuracy-val').textContent = acc;
+  }, err => alert('Could not get location: ' + err.message), {enableHighAccuracy:true, timeout:10000});
+}
+
+function toggleAnchorWatch() {
+  anchorActive = !anchorActive;
+  const btn = document.getElementById('anchor-watch-btn');
+  const badge = document.getElementById('anchor-status-badge');
+  if(anchorActive) {
+    btn.textContent = 'Stop Watch';
+    btn.style.background = 'var(--red)';
+    badge.textContent = 'WATCHING';
+    badge.style.background = 'var(--green-dim)';
+    badge.style.color = 'var(--green)';
+    anchorWatchInterval = setInterval(checkAnchorDrag, 5000);
+    checkAnchorDrag();
+  } else {
+    btn.textContent = 'Start Watch';
+    btn.style.background = '';
+    badge.textContent = 'INACTIVE';
+    badge.style.background = 'var(--panel2)';
+    badge.style.color = 'var(--text3)';
+    clearInterval(anchorWatchInterval);
+    document.getElementById('anchor-alert').style.display = 'none';
+  }
+}
+
+function checkAnchorDrag() {
+  if(!anchorLat || !anchorLon || !anchorActive) return;
+  navigator.geolocation.getCurrentPosition(pos => {
+    const dist = haversineDistance(anchorLat, anchorLon, pos.coords.latitude, pos.coords.longitude);
+    const distFt = Math.round(dist * 3.281);
+    const radius = +document.getElementById('anchor-radius').value;
+    const acc = Math.round(pos.coords.accuracy * 3.281);
+    document.getElementById('anchor-dist-val').innerHTML = distFt + '<span class="stat-unit">ft</span>';
+    document.getElementById('anchor-accuracy-val').textContent = acc;
+
+    // Bearing
+    const brg = bearing(anchorLat, anchorLon, pos.coords.latitude, pos.coords.longitude);
+    document.getElementById('anchor-bearing-val').innerHTML = Math.round(brg) + '<span class="stat-unit">deg</span>';
+
+    // Update dot on compass
+    const angle = (brg * Math.PI / 180);
+    const r = Math.min(60, (distFt / radius) * 60);
+    const dotX = 80 + r * Math.sin(angle);
+    const dotY = 80 - r * Math.cos(angle);
+    document.getElementById('anchor-dot').setAttribute('cx', dotX.toFixed(1));
+    document.getElementById('anchor-dot').setAttribute('cy', dotY.toFixed(1));
+    document.getElementById('anchor-dot').setAttribute('fill', distFt > radius ? 'var(--red)' : 'var(--amber)');
+
+    const alertEl = document.getElementById('anchor-alert');
+    if(distFt > radius) {
+      alertEl.style.display = 'block';
+      alertEl.textContent = 'ANCHOR DRAG ALERT — '+distFt+'ft from drop point';
+      // Try to vibrate and play tone
+      if(navigator.vibrate) navigator.vibrate([500,200,500,200,500]);
+      playAlarmTone();
+    } else {
+      alertEl.style.display = 'none';
+    }
+    document.getElementById('anchor-dist-stat').className = 'stat ' + (distFt > radius ? '' : (distFt > radius*0.7 ? 'warn' : 'ok'));
+  }, null, {enableHighAccuracy:true, timeout:8000});
+}
+
+function haversineDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371000; // meters
+  const dLat = (lat2-lat1) * Math.PI/180;
+  const dLon = (lon2-lon1) * Math.PI/180;
+  const a = Math.sin(dLat/2)*Math.sin(dLat/2) + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)*Math.sin(dLon/2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+function bearing(lat1, lon1, lat2, lon2) {
+  const dLon = (lon2-lon1) * Math.PI/180;
+  const y = Math.sin(dLon) * Math.cos(lat2*Math.PI/180);
+  const x = Math.cos(lat1*Math.PI/180)*Math.sin(lat2*Math.PI/180) - Math.sin(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.cos(dLon);
+  return ((Math.atan2(y,x)*180/Math.PI) + 360) % 360;
+}
+
+function playAlarmTone() {
+  try {
+    const ctx = new (window.AudioContext||window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.frequency.value = 880;
+    osc.type = 'sine';
+    gain.gain.setValueAtTime(0.3, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime+1.5);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime+1.5);
+  } catch(e) {}
+}
+
+function clearAnchor() {
+  if(anchorActive) toggleAnchorWatch();
+  anchorLat = null; anchorLon = null;
+  document.getElementById('anchor-position-display').textContent = 'Position not set';
+  document.getElementById('anchor-watch-btn').style.display = 'none';
+  document.getElementById('anchor-clear-btn').style.display = 'none';
+  document.getElementById('anchor-dist-val').innerHTML = '--<span class="stat-unit">ft</span>';
+  document.getElementById('anchor-bearing-val').innerHTML = '--<span class="stat-unit">deg</span>';
+  document.getElementById('anchor-accuracy-val').textContent = '--';
+  document.getElementById('anchor-dot').setAttribute('cx', 80);
+  document.getElementById('anchor-dot').setAttribute('cy', 80);
+}
+
+// ── FLOAT PLAN SHARING ──
+function generateAndShareFP() {
+  generateFP();
+  const txt = document.getElementById('fp-output').textContent;
+  if(navigator.share) {
+    navigator.share({title:"Float Plan", text: txt}).catch(()=>{});
+  } else if(navigator.clipboard) {
+    navigator.clipboard.writeText(txt);
+    alert('Float plan copied to clipboard — paste into a text or email to send.');
+  }
+}
+
+// Add share button to float plan tab
+setTimeout(() => {
+  const fpBtn = document.querySelector('#tab-floatplan .btn-primary');
+  if(fpBtn && !document.getElementById('fp-share-btn')) {
+    const shareBtn = document.createElement('button');
+    shareBtn.id = 'fp-share-btn';
+    shareBtn.className = 'btn-sec';
+    shareBtn.textContent = 'Share Float Plan';
+    shareBtn.onclick = generateAndShareFP;
+    fpBtn.parentNode.insertBefore(shareBtn, fpBtn.nextSibling);
+  }
+}, 500);
+
+renderEquipment();
 }
 
 function getEquipmentContext() {
@@ -3098,6 +4761,363 @@ Question: ${q}`;
   }
 }
 
+// ── MAINTENANCE LOG ──
+let maintenance = JSON.parse(localStorage.getItem('maintenance')||'[]');
+let maintEditId = null;
+const MAINT_CAT_ICONS = {engine:'🔧',mechanical:'⚙️',electrical:'⚡',hull:'🚢',safety:'🦺',electronics:'📡',other:'📦'};
+
+function saveMaintenance() { localStorage.setItem('maintenance', JSON.stringify(maintenance)); }
+
+function renderMaintenance() {
+  const list = document.getElementById('maint-list');
+  const empty = document.getElementById('maint-empty');
+  const dueList = document.getElementById('maint-due-list');
+  const now = new Date();
+
+  // Due/overdue items
+  const due = maintenance.filter(m => m.nextDue && new Date(m.nextDue) <= new Date(now.getTime() + 30*24*60*60*1000));
+  if(due.length) {
+    dueList.innerHTML = due.map(m => {
+      const d = new Date(m.nextDue);
+      const overdue = d < now;
+      return `<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:${overdue?'var(--red-dim)':'var(--amber-dim)'};border:1px solid ${overdue?'rgba(224,90,90,0.3)':'rgba(232,168,76,0.3)'};border-radius:5px;margin-bottom:6px;cursor:pointer" onclick="editMaintEntry('${m.id}')">
+        <span style="font-size:16px">${MAINT_CAT_ICONS[m.cat]||'📦'}</span>
+        <div style="flex:1"><div style="font-family:var(--body);font-size:13px;color:var(--text)">${m.item}</div><div style="font-family:var(--mono);font-size:10px;color:${overdue?'var(--red)':'var(--amber)'}">Due: ${m.nextDue}</div></div>
+      </div>`;
+    }).join('');
+    document.getElementById('maint-due-section').style.display = 'block';
+  } else {
+    document.getElementById('maint-due-section').style.display = 'none';
+  }
+
+  if(!maintenance.length) { list.innerHTML = ''; empty.style.display = 'block'; return; }
+  empty.style.display = 'none';
+  const sorted = [...maintenance].sort((a,b) => new Date(b.date) - new Date(a.date));
+  list.innerHTML = sorted.map(m => `
+    <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;background:var(--panel2);border:1px solid var(--border2);border-radius:6px;cursor:pointer;transition:border-color 0.15s" onclick="editMaintEntry('${m.id}')" onmouseover="this.style.borderColor='var(--border)'" onmouseout="this.style.borderColor='var(--border2)')">
+      <span style="font-size:18px;flex-shrink:0">${MAINT_CAT_ICONS[m.cat]||'📦'}</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-family:var(--body);font-size:13px;font-weight:500;color:var(--text)">${m.item}</div>
+        <div style="font-family:var(--mono);font-size:10px;color:var(--text3);margin-top:2px">${m.date||''} ${m.hours?'· '+m.hours+' hrs':''} ${m.by?'· '+m.by:''} ${m.cost?'· $'+parseFloat(m.cost).toFixed(0):''}</div>
+        ${m.notes?'<div style="font-family:var(--body);font-size:11px;color:var(--text3);margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+m.notes+'</div>':''}
+      </div>
+      ${m.nextDue?'<div style="font-family:var(--mono);font-size:9px;color:var(--amber);text-align:right;white-space:nowrap">Next:<br>'+m.nextDue+'</div>':''}
+    </div>
+  `).join('');
+}
+
+function addMaintenanceEntry() {
+  maintEditId = null;
+  ['maint-item','maint-hours','maint-cost','maint-by','maint-next','maint-notes'].forEach(id => document.getElementById(id).value='');
+  document.getElementById('maint-date').value = new Date().toISOString().slice(0,10);
+  document.getElementById('maint-cat').value = 'engine';
+  document.getElementById('maint-interval').value = '';
+  document.getElementById('maint-form-title').textContent = 'Log Service';
+  document.getElementById('maint-delete-btn').style.display = 'none';
+  document.getElementById('maint-form').style.display = 'block';
+  setTimeout(() => document.getElementById('maint-form').scrollIntoView({behavior:'smooth'}), 100);
+}
+
+function editMaintEntry(id) {
+  const m = maintenance.find(e => e.id === id);
+  if(!m) return;
+  maintEditId = id;
+  document.getElementById('maint-item').value = m.item||'';
+  document.getElementById('maint-cat').value = m.cat||'engine';
+  document.getElementById('maint-date').value = m.date||'';
+  document.getElementById('maint-hours').value = m.hours||'';
+  document.getElementById('maint-cost').value = m.cost||'';
+  document.getElementById('maint-by').value = m.by||'';
+  document.getElementById('maint-next').value = m.nextDue||'';
+  document.getElementById('maint-interval').value = m.interval||'';
+  document.getElementById('maint-notes').value = m.notes||'';
+  document.getElementById('maint-form-title').textContent = 'Edit Entry';
+  document.getElementById('maint-delete-btn').style.display = 'inline-block';
+  document.getElementById('maint-form').style.display = 'block';
+  setTimeout(() => document.getElementById('maint-form').scrollIntoView({behavior:'smooth'}), 100);
+}
+
+function saveMaintEntry() {
+  const item = document.getElementById('maint-item').value.trim();
+  if(!item) { alert('Enter a service item name'); return; }
+  const entry = {
+    id: maintEditId || genId(),
+    item, cat: document.getElementById('maint-cat').value,
+    date: document.getElementById('maint-date').value,
+    hours: document.getElementById('maint-hours').value,
+    cost: document.getElementById('maint-cost').value,
+    by: document.getElementById('maint-by').value,
+    nextDue: document.getElementById('maint-next').value,
+    interval: document.getElementById('maint-interval').value,
+    notes: document.getElementById('maint-notes').value,
+  };
+  if(maintEditId) { const i = maintenance.findIndex(e=>e.id===maintEditId); if(i>=0) maintenance[i]=entry; }
+  else maintenance.unshift(entry);
+  saveMaintenance(); closeMaintForm(); renderMaintenance();
+}
+
+function deleteMaintEntry() {
+  if(!maintEditId||!confirm('Delete this entry?')) return;
+  maintenance = maintenance.filter(e=>e.id!==maintEditId);
+  saveMaintenance(); closeMaintForm(); renderMaintenance();
+}
+
+function closeMaintForm() { document.getElementById('maint-form').style.display='none'; maintEditId=null; }
+renderMaintenance();
+
+// ── TRIP PLANNER ──
+function updateTripPlan() {
+  const dist = +document.getElementById('tp-dist').value||0;
+  const speed = +document.getElementById('tp-speed').value||18;
+  const fuel = +document.getElementById('tp-fuel').value||0;
+  const burn = +document.getElementById('tp-burn').value||25;
+  const depTime = document.getElementById('tp-time').value||'08:00';
+  const depDate = document.getElementById('tp-date').value;
+
+  if(!dist || !speed) {
+    document.getElementById('tp-eta-val').textContent = '--';
+    document.getElementById('tp-hrs-val').innerHTML = '--<span class="stat-unit">h</span>';
+    return;
+  }
+
+  const hrs = dist / speed;
+  const hh = Math.floor(hrs);
+  const mm = Math.round((hrs - hh) * 60);
+  document.getElementById('tp-hrs-val').innerHTML = hh+'h '+mm+'m';
+
+  // ETA
+  if(depDate && depTime) {
+    const dep = new Date(depDate + 'T' + depTime);
+    const eta = new Date(dep.getTime() + hrs * 3600000);
+    document.getElementById('tp-eta-val').textContent = eta.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',hour12:true});
+  }
+
+  // Fuel
+  const fuelUsed = hrs * burn;
+  const remaining = fuel - fuelUsed;
+  const canGo = remaining > fuel * 0.15;
+  document.getElementById('tp-fuel-val').innerHTML = Math.round(fuelUsed)+'<span class="stat-unit">gal</span>';
+  document.getElementById('tp-fuel-stat').className = 'stat ' + (canGo?'ok':'');
+  document.getElementById('tp-go-val').textContent = canGo ? 'GO' : 'NO-GO';
+  document.getElementById('tp-go-stat').className = 'stat ' + (canGo?'ok':'');
+  document.getElementById('tp-go-val').style.color = canGo ? 'var(--green)' : 'var(--red)';
+}
+
+function sendTripToFloatPlan() {
+  document.getElementById('fp-from').value = document.getElementById('tp-from').value;
+  document.getElementById('fp-to').value = document.getElementById('tp-to').value;
+  const d = document.getElementById('tp-date').value;
+  const t = document.getElementById('tp-time').value;
+  if(d && t) document.getElementById('fp-dep').value = d+'T'+t;
+  saveFP();
+  showTab('floatplan');
+}
+
+function sendTripToFuelCalc() {
+  document.getElementById('f-dist').value = document.getElementById('tp-dist').value;
+  document.getElementById('f-speed').value = document.getElementById('tp-speed').value;
+  document.getElementById('f-aboard').value = document.getElementById('tp-fuel').value;
+  document.getElementById('f-burn').value = document.getElementById('tp-burn').value;
+  calcFuel();
+  showTab('fuel');
+}
+
+// Pre-fill trip planner from vessel profile
+function prefillTripFromVessel() {
+  const v = JSON.parse(localStorage.getItem('vesselProfile')||'{}');
+  if(v['v-speed'] && !document.getElementById('tp-speed').value) document.getElementById('tp-speed').value = v['v-speed'];
+  if(v['v-burn'] && !document.getElementById('tp-burn').value) document.getElementById('tp-burn').value = v['v-burn'];
+  if(v['v-homeport'] && !document.getElementById('tp-from').value) document.getElementById('tp-from').value = v['v-homeport'];
+  document.getElementById('tp-date').value = new Date().toISOString().slice(0,10);
+}
+prefillTripFromVessel();
+
+async function aiPlanTrip() {
+  if(!apiKey) { showApiSetup(); return; }
+  const from = document.getElementById('tp-from').value;
+  const to = document.getElementById('tp-to').value;
+  const dist = document.getElementById('tp-dist').value;
+  const date = document.getElementById('tp-date').value;
+  const time = document.getElementById('tp-time').value;
+  if(!from || !to) { alert('Enter departure and destination first'); return; }
+
+  const respEl = document.getElementById('tp-ai-response');
+  respEl.style.display = 'block';
+  respEl.innerHTML = '<div style="display:flex;gap:4px;align-items:center"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div>';
+
+  const vessel = JSON.parse(localStorage.getItem('vesselProfile')||'{}');
+  const wx = window._liveWeather || {};
+  const prompt = `Plan a trip from ${from} to ${to}${dist?' ('+dist+' nm)':''} departing ${date||'today'} at ${time||'08:00'}. Vessel: ${vessel['v-name']||'my boat'} (${vessel['v-model']||'powerboat'}), cruise speed ${vessel['v-speed']||18}kts, burn rate ${vessel['v-burn']||25}gph, fuel capacity ${vessel['v-fuel-cap']||300}gal. Current conditions: wind ${wx.wind||'unknown'}kt, waves ${wx.wave||'unknown'}ft. Waypoints/notes: ${document.getElementById('tp-waypoints').value||'none'}. Give me: go/no-go assessment, tidal timing recommendations, hazards to watch, suggested waypoints, and any fuel stop recommendations.`;
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body: JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1200,system:SYSTEM_PROMPT,messages:[{role:'user',content:prompt}]})
+    });
+    const data = await res.json();
+    if(data.error) { respEl.innerHTML = '<span style="color:var(--red)">Error: '+data.error.message+'</span>'; }
+    else { respEl.innerHTML = data.content[0].text.replace(/\n/g,'<br>'); }
+  } catch(e) { respEl.innerHTML = '<span style="color:var(--red)">Connection error.</span>'; }
+}
+
+// ── ANCHOR WATCH ──
+let anchorLat = null, anchorLon = null, anchorWatchInterval = null;
+let anchorActive = false;
+let anchorAlarmSound = null;
+
+function updateAnchorRadius() {
+  const r = document.getElementById('anchor-radius').value;
+  document.getElementById('anchor-radius-val').textContent = r + ' ft';
+  document.getElementById('anchor-radius-label').textContent = r + ' ft radius';
+  // Scale the SVG ring
+  const scale = Math.min(1, r / 200);
+  const ringR = Math.round(20 + scale * 50);
+  document.getElementById('anchor-drag-ring').setAttribute('r', ringR);
+}
+
+function setAnchorPosition() {
+  if(!navigator.geolocation) { alert('Geolocation not available on this device/browser.'); return; }
+  navigator.geolocation.getCurrentPosition(pos => {
+    anchorLat = pos.coords.latitude;
+    anchorLon = pos.coords.longitude;
+    const acc = Math.round(pos.coords.accuracy * 3.281);
+    document.getElementById('anchor-position-display').textContent =
+      anchorLat.toFixed(5) + ' N, ' + Math.abs(anchorLon).toFixed(5) + ' W | Accuracy: ±' + acc + 'ft';
+    document.getElementById('anchor-watch-btn').style.display = 'inline-block';
+    document.getElementById('anchor-clear-btn').style.display = 'inline-block';
+    document.getElementById('anchor-accuracy-val').textContent = acc;
+  }, err => alert('Could not get location: ' + err.message), {enableHighAccuracy:true, timeout:10000});
+}
+
+function toggleAnchorWatch() {
+  anchorActive = !anchorActive;
+  const btn = document.getElementById('anchor-watch-btn');
+  const badge = document.getElementById('anchor-status-badge');
+  if(anchorActive) {
+    btn.textContent = 'Stop Watch';
+    btn.style.background = 'var(--red)';
+    badge.textContent = 'WATCHING';
+    badge.style.background = 'var(--green-dim)';
+    badge.style.color = 'var(--green)';
+    anchorWatchInterval = setInterval(checkAnchorDrag, 5000);
+    checkAnchorDrag();
+  } else {
+    btn.textContent = 'Start Watch';
+    btn.style.background = '';
+    badge.textContent = 'INACTIVE';
+    badge.style.background = 'var(--panel2)';
+    badge.style.color = 'var(--text3)';
+    clearInterval(anchorWatchInterval);
+    document.getElementById('anchor-alert').style.display = 'none';
+  }
+}
+
+function checkAnchorDrag() {
+  if(!anchorLat || !anchorLon || !anchorActive) return;
+  navigator.geolocation.getCurrentPosition(pos => {
+    const dist = haversineDistance(anchorLat, anchorLon, pos.coords.latitude, pos.coords.longitude);
+    const distFt = Math.round(dist * 3.281);
+    const radius = +document.getElementById('anchor-radius').value;
+    const acc = Math.round(pos.coords.accuracy * 3.281);
+    document.getElementById('anchor-dist-val').innerHTML = distFt + '<span class="stat-unit">ft</span>';
+    document.getElementById('anchor-accuracy-val').textContent = acc;
+
+    // Bearing
+    const brg = bearing(anchorLat, anchorLon, pos.coords.latitude, pos.coords.longitude);
+    document.getElementById('anchor-bearing-val').innerHTML = Math.round(brg) + '<span class="stat-unit">deg</span>';
+
+    // Update dot on compass
+    const angle = (brg * Math.PI / 180);
+    const r = Math.min(60, (distFt / radius) * 60);
+    const dotX = 80 + r * Math.sin(angle);
+    const dotY = 80 - r * Math.cos(angle);
+    document.getElementById('anchor-dot').setAttribute('cx', dotX.toFixed(1));
+    document.getElementById('anchor-dot').setAttribute('cy', dotY.toFixed(1));
+    document.getElementById('anchor-dot').setAttribute('fill', distFt > radius ? 'var(--red)' : 'var(--amber)');
+
+    const alertEl = document.getElementById('anchor-alert');
+    if(distFt > radius) {
+      alertEl.style.display = 'block';
+      alertEl.textContent = 'ANCHOR DRAG ALERT — '+distFt+'ft from drop point';
+      // Try to vibrate and play tone
+      if(navigator.vibrate) navigator.vibrate([500,200,500,200,500]);
+      playAlarmTone();
+    } else {
+      alertEl.style.display = 'none';
+    }
+    document.getElementById('anchor-dist-stat').className = 'stat ' + (distFt > radius ? '' : (distFt > radius*0.7 ? 'warn' : 'ok'));
+  }, null, {enableHighAccuracy:true, timeout:8000});
+}
+
+function haversineDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371000; // meters
+  const dLat = (lat2-lat1) * Math.PI/180;
+  const dLon = (lon2-lon1) * Math.PI/180;
+  const a = Math.sin(dLat/2)*Math.sin(dLat/2) + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)*Math.sin(dLon/2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+function bearing(lat1, lon1, lat2, lon2) {
+  const dLon = (lon2-lon1) * Math.PI/180;
+  const y = Math.sin(dLon) * Math.cos(lat2*Math.PI/180);
+  const x = Math.cos(lat1*Math.PI/180)*Math.sin(lat2*Math.PI/180) - Math.sin(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.cos(dLon);
+  return ((Math.atan2(y,x)*180/Math.PI) + 360) % 360;
+}
+
+function playAlarmTone() {
+  try {
+    const ctx = new (window.AudioContext||window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.frequency.value = 880;
+    osc.type = 'sine';
+    gain.gain.setValueAtTime(0.3, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime+1.5);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime+1.5);
+  } catch(e) {}
+}
+
+function clearAnchor() {
+  if(anchorActive) toggleAnchorWatch();
+  anchorLat = null; anchorLon = null;
+  document.getElementById('anchor-position-display').textContent = 'Position not set';
+  document.getElementById('anchor-watch-btn').style.display = 'none';
+  document.getElementById('anchor-clear-btn').style.display = 'none';
+  document.getElementById('anchor-dist-val').innerHTML = '--<span class="stat-unit">ft</span>';
+  document.getElementById('anchor-bearing-val').innerHTML = '--<span class="stat-unit">deg</span>';
+  document.getElementById('anchor-accuracy-val').textContent = '--';
+  document.getElementById('anchor-dot').setAttribute('cx', 80);
+  document.getElementById('anchor-dot').setAttribute('cy', 80);
+}
+
+// ── FLOAT PLAN SHARING ──
+function generateAndShareFP() {
+  generateFP();
+  const txt = document.getElementById('fp-output').textContent;
+  if(navigator.share) {
+    navigator.share({title:"Float Plan", text: txt}).catch(()=>{});
+  } else if(navigator.clipboard) {
+    navigator.clipboard.writeText(txt);
+    alert('Float plan copied to clipboard — paste into a text or email to send.');
+  }
+}
+
+// Add share button to float plan tab
+setTimeout(() => {
+  const fpBtn = document.querySelector('#tab-floatplan .btn-primary');
+  if(fpBtn && !document.getElementById('fp-share-btn')) {
+    const shareBtn = document.createElement('button');
+    shareBtn.id = 'fp-share-btn';
+    shareBtn.className = 'btn-sec';
+    shareBtn.textContent = 'Share Float Plan';
+    shareBtn.onclick = generateAndShareFP;
+    fpBtn.parentNode.insertBefore(shareBtn, fpBtn.nextSibling);
+  }
+}, 500);
+
 renderEquipment();
 
 // ── WINDY MAP ──
@@ -3132,6 +5152,31 @@ const PAGE_CONTROLS = {
 function getPageState() {
   const state = {};
   for(const [k,ctrl] of Object.entries(PAGE_CONTROLS)) state[k] = ctrl.get();
+  // Add vessel profile
+  const vessel = JSON.parse(localStorage.getItem('vesselProfile')||'{}');
+  if(vessel['v-name']) state.vessel_name = vessel['v-name'];
+  if(vessel['v-model']) state.vessel_model = vessel['v-model'];
+  if(vessel['v-engine']) state.vessel_engines = vessel['v-engine'];
+  if(vessel['v-loa']) state.vessel_loa = vessel['v-loa']+'ft';
+  if(vessel['v-fuel-cap']) state.vessel_fuel_capacity = vessel['v-fuel-cap']+'gal';
+  if(vessel['v-speed']) state.vessel_cruise_speed = vessel['v-speed']+'kts';
+  if(vessel['v-burn']) state.vessel_burn_rate = vessel['v-burn']+'gph';
+  if(vessel['v-homeport']) state.vessel_homeport = vessel['v-homeport'];
+  // Add live weather if available
+  if(window._liveWeather) {
+    state.live_wind_kt = window._liveWeather.wind;
+    state.live_wave_ft = window._liveWeather.wave;
+    state.live_visibility_mi = window._liveWeather.vis;
+    state.location_lat = window._liveWeather.lat;
+    state.location_lon = window._liveWeather.lon;
+  }
+  // Add maintenance due items
+  const maint = JSON.parse(localStorage.getItem('maintenance')||'[]');
+  const overdue = maint.filter(m => m.nextDue && new Date(m.nextDue) < new Date()).map(m => m.item);
+  if(overdue.length) state.maintenance_overdue = overdue.join(', ');
+  // Add equipment summary
+  const eq = JSON.parse(localStorage.getItem('equipment')||'[]');
+  if(eq.length) state.equipment_count = eq.length;
   return state;
 }
 
@@ -3158,13 +5203,136 @@ function cleanAiText(text) {
   return text.replace(/\[UPDATE:\s*\{[\s\S]*?\}\]/g, '').trim();
 }
 
-// Fake weather data for overview (in real deployment, use NOAA API)
-setTimeout(() => {
-  document.getElementById('ov-wind').innerHTML = '12<span class="stat-unit">kt</span>';
-  document.getElementById('ov-wave').innerHTML = '2<span class="stat-unit">ft</span>';
-  document.getElementById('ov-vis').innerHTML = '10<span class="stat-unit">mi</span>';
-  document.getElementById('wx-badge').textContent = 'FAVORABLE';
-}, 500);
+// ── LIVE WEATHER via Open-Meteo (free, no API key) ──
+async function fetchLiveWeather() {
+  try {
+    // Default to Boston Harbor coords; use vessel homeport if geolocation available
+    let lat = 42.32, lon = -70.99;
+    // Try geolocation first
+    if(navigator.geolocation) {
+      await new Promise(resolve => {
+        navigator.geolocation.getCurrentPosition(pos => {
+          lat = pos.coords.latitude;
+          lon = pos.coords.longitude;
+          resolve();
+        }, () => resolve(), {timeout:4000});
+      });
+    }
+    // Open-Meteo marine API - free, no key needed
+    const url = `https://marine-api.open-meteo.com/v1/marine?latitude=${lat}&longitude=${lon}&hourly=wave_height,wind_wave_height&current=wave_height&wind_speed_unit=kn&length_unit=imperial`;
+    const wxUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=wind_speed_10m,visibility,weather_code&wind_speed_unit=kn&forecast_days=1`;
+
+    const [marineRes, wxRes] = await Promise.all([
+      fetch(url).catch(()=>null),
+      fetch(wxUrl).catch(()=>null)
+    ]);
+
+    let windKt = '--', waveFt = '--', visMi = '--', code = -1;
+
+    if(wxRes && wxRes.ok) {
+      const wx = await wxRes.json();
+      if(wx.current) {
+        windKt = Math.round(wx.current.wind_speed_10m);
+        visMi = Math.round((wx.current.visibility||16000) / 1609);
+        code = wx.current.weather_code || 0;
+      }
+    }
+    if(marineRes && marineRes.ok) {
+      const marine = await marineRes.json();
+      if(marine.current && marine.current.wave_height != null) {
+        waveFt = (marine.current.wave_height * 3.281).toFixed(1);
+      }
+    }
+
+    document.getElementById('ov-wind').innerHTML = windKt+'<span class="stat-unit">kt</span>';
+    document.getElementById('ov-wave').innerHTML = waveFt+'<span class="stat-unit">ft</span>';
+    document.getElementById('ov-vis').innerHTML = (visMi === '--' ? '--' : Math.min(visMi,10))+'<span class="stat-unit">mi</span>';
+
+    // Go/no-go assessment
+    const wLim = +document.getElementById('wx-wind-limit').value || 20;
+    const wvLim = +document.getElementById('wx-wave-limit').value || 4;
+    const numWind = typeof windKt === 'number' ? windKt : 0;
+    const numWave = typeof waveFt === 'number' ? parseFloat(waveFt) : 0;
+    const isGo = numWind < wLim && numWave < wvLim && code < 60;
+    const badge = document.getElementById('wx-badge');
+    badge.textContent = isGo ? 'FAVORABLE' : (numWind >= wLim || numWave >= wvLim ? 'MARGINAL' : 'CHECK CONDITIONS');
+    badge.className = 'card-badge ' + (isGo ? 'badge-ok' : 'badge-warn');
+
+    // Store for AI context
+    window._liveWeather = {wind: windKt, wave: waveFt, vis: visMi, lat: lat.toFixed(3), lon: lon.toFixed(3)};
+  } catch(e) {
+    console.log('Weather fetch error:', e);
+  }
+}
+fetchLiveWeather();
+setInterval(fetchLiveWeather, 10 * 60 * 1000); // refresh every 10 min
+
+// ── LIVE NOAA TIDES ──
+async function fetchNOAATides() {
+  try {
+    const stationId = '8443970'; // Boston Harbor - closest to Marina Bay Quincy
+    const today = new Date();
+    const dateStr = today.getFullYear() + String(today.getMonth()+1).padStart(2,'0') + String(today.getDate()).padStart(2,'0');
+    const url = `https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?begin_date=${dateStr}&end_date=${dateStr}&station=${stationId}&product=predictions&datum=MLLW&time_zone=lst_ldt&interval=hilo&units=english&application=captains_bridge&format=json`;
+    const res = await fetch(url);
+    if(!res.ok) return;
+    const data = await res.json();
+    if(!data.predictions) return;
+
+    const preds = data.predictions;
+    const now = new Date();
+
+    // Find next HW and LW
+    let nextHW = null, nextLW = null;
+    for(const p of preds) {
+      const t = new Date(p.t);
+      if(t > now) {
+        if(p.type === 'H' && !nextHW) nextHW = p;
+        if(p.type === 'L' && !nextLW) nextLW = p;
+        if(nextHW && nextLW) break;
+      }
+    }
+
+    if(nextHW) {
+      const hwTime = new Date(nextHW.t);
+      document.getElementById('next-hw').textContent = hwTime.getHours().toString().padStart(2,'0')+':'+hwTime.getMinutes().toString().padStart(2,'0');
+    }
+    if(nextLW) {
+      const lwTime = new Date(nextLW.t);
+      document.getElementById('next-lw').textContent = lwTime.getHours().toString().padStart(2,'0')+':'+lwTime.getMinutes().toString().padStart(2,'0');
+    }
+
+    // Build hourly tide heights for chart using hilo interpolation
+    // Get all today's predictions for chart
+    const chartUrl = `https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?begin_date=${dateStr}&end_date=${dateStr}&station=${stationId}&product=predictions&datum=MLLW&time_zone=lst_ldt&interval=h&units=english&application=captains_bridge&format=json`;
+    const chartRes = await fetch(chartUrl);
+    if(chartRes.ok) {
+      const chartData = await chartRes.json();
+      if(chartData.predictions) {
+        const heights = chartData.predictions.map(p => parseFloat(p.v));
+        const maxH = Math.max(...heights);
+        const minH = Math.min(...heights);
+        const range = maxH - minH || 1;
+        const container = document.getElementById('tide-chart');
+        container.innerHTML = '';
+        const currentHour = now.getHours();
+        heights.forEach((h, i) => {
+          const bar = document.createElement('div');
+          const pct = (h - minH) / range;
+          bar.className = 'tide-bar' + (i === currentHour ? ' current' : '');
+          bar.style.height = Math.max(4, Math.round(pct * 56)) + 'px';
+          bar.title = `${i}:00 — ${h.toFixed(1)}ft`;
+          container.appendChild(bar);
+        });
+        document.getElementById('tide-badge').textContent = 'NOAA LIVE';
+        window._liveTides = {heights, nextHW, nextLW, station: 'Boston Harbor'};
+      }
+    }
+  } catch(e) {
+    console.log('Tide fetch error:', e);
+  }
+}
+fetchNOAATides();
 </script>
 
 <!-- MOBILE: Bottom Nav -->
@@ -3186,6 +5354,10 @@ setTimeout(() => {
       <span class="bnav-icon">⛽</span>
       <span class="bnav-label">Fuel</span>
     </button>
+    <button class="bnav-btn" onclick="mobileTab('anchor',this)">
+      <span class="bnav-icon">⚓</span>
+      <span class="bnav-label">Anchor</span>
+    </button>
     <button class="bnav-btn" onclick="mobileTab('more',this)">
       <span class="bnav-icon">☰</span>
       <span class="bnav-label">More</span>
@@ -3202,7 +5374,9 @@ setTimeout(() => {
     <button class="bnav-more-btn" onclick="mobileTabFromMore('floatplan')">📋 Float Plan</button>
     <button class="bnav-more-btn" onclick="mobileTabFromMore('emergency')">🚨 Emergency</button>
     <button class="bnav-more-btn" onclick="mobileTabFromMore('equipment')">🔧 Equipment</button>
-    <button class="bnav-more-btn" onclick="mobileTabFromMore('vessel')" style="grid-column:1/-1">⚓ My Vessel</button>
+    <button class="bnav-more-btn" onclick="mobileTabFromMore('vessel')">⚓ My Vessel</button>
+    <button class="bnav-more-btn" onclick="mobileTabFromMore('maintenance')">🔧 Maintenance</button>
+    <button class="bnav-more-btn" onclick="mobileTabFromMore('tripplan')" style="grid-column:1/-1">🗺️ Trip Planner</button>
   </div>
 </div>
 
